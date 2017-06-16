@@ -59,5 +59,25 @@ namespace usb2snes.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap gtk_goto_first_ltr {
+            get {
+                object obj = ResourceManager.GetObject("gtk_goto_first_ltr", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap gtk_goto_last_ltr {
+            get {
+                object obj = ResourceManager.GetObject("gtk_goto_last_ltr", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
     }
 }

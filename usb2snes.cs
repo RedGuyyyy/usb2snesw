@@ -263,7 +263,7 @@ namespace WindowsFormsApplication1
                                     while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
                                     int fileSize = 0;
                                     fileSize |= tBuffer[252]; fileSize <<= 8;
-                                    fileSize |= tBuffer[253]; fileSize <<= 8;
+                                   fileSize |= tBuffer[253]; fileSize <<= 8;
                                     fileSize |= tBuffer[254]; fileSize <<= 8;
                                     fileSize |= tBuffer[255]; fileSize <<= 0;
 
@@ -598,44 +598,44 @@ namespace WindowsFormsApplication1
             }
         }
 
-        private void listViewRemote_MouseDown(object sender, MouseEventArgs e)
-        {
+        //private void listViewRemote_MouseDown(object sender, MouseEventArgs e)
+        //{
 
-            bootToolStripMenuItem.Enabled = false;
-            makeDirToolStripMenuItem.Enabled = false;
-            uploadToolStripMenuItem.Enabled = false;
-            downloadToolStripMenuItem.Enabled = false;
-            deleteToolStripMenuItem.Enabled = false;
-            renameToolStripMenuItem.Enabled = false;
+        //    bootToolStripMenuItem.Enabled = false;
+        //    makeDirToolStripMenuItem.Enabled = false;
+        //    uploadToolStripMenuItem.Enabled = false;
+        //    downloadToolStripMenuItem.Enabled = false;
+        //    deleteToolStripMenuItem.Enabled = false;
+        //    renameToolStripMenuItem.Enabled = false;
 
-            if (connected)
-            {
-                var info = listViewRemote.HitTest(e.X, e.Y);
+        //    if (connected)
+        //    {
+        //        var info = listViewRemote.HitTest(e.X, e.Y);
 
-                uploadToolStripMenuItem.Enabled = true;
-                makeDirToolStripMenuItem.Enabled = true;
+        //        uploadToolStripMenuItem.Enabled = true;
+        //        makeDirToolStripMenuItem.Enabled = true;
 
-                if (e.Button == MouseButtons.Right)
-                {
-                    var loc = e.Location;
-                    loc.Offset(listViewRemote.Location);
+        //        if (e.Button == MouseButtons.Right)
+        //        {
+        //            var loc = e.Location;
+        //            loc.Offset(listViewRemote.Location);
 
-                    if (info.Item != null)
-                    {
-                        deleteToolStripMenuItem.Enabled = true;
-                        renameToolStripMenuItem.Enabled = true;
+        //            if (info.Item != null)
+        //            {
+        //                deleteToolStripMenuItem.Enabled = true;
+        //                renameToolStripMenuItem.Enabled = true;
 
-                        if (info.Item.ImageIndex == 1)
-                        {
-                            downloadToolStripMenuItem.Enabled = true;
-                            bootToolStripMenuItem.Enabled = true;
-                        }
-                    }
+        //                if (info.Item.ImageIndex == 1)
+        //                {
+        //                    downloadToolStripMenuItem.Enabled = true;
+        //                    bootToolStripMenuItem.Enabled = true;
+        //                }
+        //            }
 
-                    this.contextMenuStripRemote.Show(this, loc);
-                }
-            }
-        }
+        //            this.contextMenuStripRemote.Show(this, loc);
+        //        }
+        //    }
+        //}
 
         private void listViewRemote_MouseDoubleClick(object sender, MouseEventArgs e)
         {
@@ -649,6 +649,7 @@ namespace WindowsFormsApplication1
                     {
                         if (info.Item.ImageIndex == 0 && info.Item.Text != ".")
                         {
+                            remoteDirPrev = remoteDir;
                             if (info.Item.Text == "..")
                             {
                                 String[] elements = remoteDir.Split('/');
@@ -661,6 +662,9 @@ namespace WindowsFormsApplication1
                                 remoteDir += '/' + info.Item.Text;
                             }
                             RefreshListViewRemote();
+                            remoteDirNext = remoteDir;
+                            backToolStripMenuItem.Enabled = true;
+                            forwardToolStripMenuItem.Enabled = false;
                         }
                     }
                 }
@@ -869,6 +873,71 @@ namespace WindowsFormsApplication1
         private void renameToolStripMenuItem_Click(object sender, EventArgs e)
         {
             buttonRename.PerformClick();
+        }
+
+        private void listViewRemote_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                bootToolStripMenuItem.Enabled = false;
+                makeDirToolStripMenuItem.Enabled = false;
+                uploadToolStripMenuItem.Enabled = false;
+                downloadToolStripMenuItem.Enabled = false;
+                deleteToolStripMenuItem.Enabled = false;
+                renameToolStripMenuItem.Enabled = false;
+
+                if (connected)
+                {
+                    var info = listViewRemote.HitTest(e.X, e.Y);
+
+                    uploadToolStripMenuItem.Enabled = true;
+                    makeDirToolStripMenuItem.Enabled = true;
+
+                    var loc = e.Location;
+                    loc.Offset(listViewRemote.Location);
+
+                    if (info.Item != null)
+                    {
+                        deleteToolStripMenuItem.Enabled = true;
+                        renameToolStripMenuItem.Enabled = true;
+
+                        if (info.Item.ImageIndex == 1)
+                        {
+                            downloadToolStripMenuItem.Enabled = true;
+                            bootToolStripMenuItem.Enabled = true;
+                        }
+                    }
+
+                    this.contextMenuStripRemote.Show(this, loc);
+                }
+            }
+        }
+
+        private void backToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (remoteDir != remoteDirPrev)
+            {
+                // back
+                remoteDirNext = remoteDir;
+                remoteDir = remoteDirPrev;
+                RefreshListViewRemote();
+                backToolStripMenuItem.Enabled = false;
+                forwardToolStripMenuItem.Enabled = true;
+            }
+
+        }
+
+        private void forwardToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            // forward
+            if (remoteDir != remoteDirNext)
+            {
+                remoteDirPrev = remoteDir;
+                remoteDir = remoteDirNext;
+                RefreshListViewRemote();
+                backToolStripMenuItem.Enabled = true;
+                forwardToolStripMenuItem.Enabled = false;
+            }
         }
     }
 }

@@ -49,7 +49,6 @@
             this.comboBoxPort = new System.Windows.Forms.ComboBox();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
-            this.buttonRefresh = new System.Windows.Forms.Button();
             this.buttonBoot = new System.Windows.Forms.Button();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.contextMenuStripRemote = new System.Windows.Forms.ContextMenuStrip(this.components);
@@ -65,6 +64,10 @@
             this.buttonMkdir = new System.Windows.Forms.Button();
             this.buttonDelete = new System.Windows.Forms.Button();
             this.buttonRename = new System.Windows.Forms.Button();
+            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
+            this.buttonRefresh = new System.Windows.Forms.Button();
+            this.backToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.forwardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.SuspendLayout();
@@ -131,16 +134,6 @@
             this.openFileDialog1.FileName = "openFileDialog1";
             this.openFileDialog1.Multiselect = true;
             // 
-            // buttonRefresh
-            // 
-            this.buttonRefresh.Image = ((System.Drawing.Image)(resources.GetObject("buttonRefresh.Image")));
-            this.buttonRefresh.Location = new System.Drawing.Point(415, 181);
-            this.buttonRefresh.Name = "buttonRefresh";
-            this.buttonRefresh.Size = new System.Drawing.Size(21, 23);
-            this.buttonRefresh.TabIndex = 4;
-            this.buttonRefresh.UseVisualStyleBackColor = true;
-            this.buttonRefresh.Click += new System.EventHandler(this.buttonRefresh_Click);
-            // 
             // buttonBoot
             // 
             this.buttonBoot.Enabled = false;
@@ -162,6 +155,9 @@
             // contextMenuStripRemote
             // 
             this.contextMenuStripRemote.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.backToolStripMenuItem,
+            this.forwardToolStripMenuItem,
+            this.toolStripSeparator3,
             this.uploadToolStripMenuItem,
             this.makeDirToolStripMenuItem,
             this.toolStripSeparator1,
@@ -171,7 +167,7 @@
             this.deleteToolStripMenuItem,
             this.renameToolStripMenuItem});
             this.contextMenuStripRemote.Name = "contextMenuStrip1";
-            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 148);
+            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 198);
             // 
             // uploadToolStripMenuItem
             // 
@@ -243,8 +239,8 @@
             this.listViewRemote.TabIndex = 6;
             this.listViewRemote.UseCompatibleStateImageBehavior = false;
             this.listViewRemote.View = System.Windows.Forms.View.List;
+            this.listViewRemote.MouseClick += new System.Windows.Forms.MouseEventHandler(this.listViewRemote_MouseClick);
             this.listViewRemote.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.listViewRemote_MouseDoubleClick);
-            this.listViewRemote.MouseDown += new System.Windows.Forms.MouseEventHandler(this.listViewRemote_MouseDown);
             // 
             // buttonMkdir
             // 
@@ -279,6 +275,39 @@
             this.buttonRename.UseVisualStyleBackColor = true;
             this.buttonRename.Click += new System.EventHandler(this.buttonRename_Click);
             // 
+            // toolStripSeparator3
+            // 
+            this.toolStripSeparator3.Name = "toolStripSeparator3";
+            this.toolStripSeparator3.Size = new System.Drawing.Size(151, 6);
+            // 
+            // buttonRefresh
+            // 
+            this.buttonRefresh.Image = ((System.Drawing.Image)(resources.GetObject("buttonRefresh.Image")));
+            this.buttonRefresh.Location = new System.Drawing.Point(415, 181);
+            this.buttonRefresh.Name = "buttonRefresh";
+            this.buttonRefresh.Size = new System.Drawing.Size(21, 23);
+            this.buttonRefresh.TabIndex = 4;
+            this.buttonRefresh.UseVisualStyleBackColor = true;
+            this.buttonRefresh.Click += new System.EventHandler(this.buttonRefresh_Click);
+            // 
+            // backToolStripMenuItem
+            // 
+            this.backToolStripMenuItem.Enabled = false;
+            this.backToolStripMenuItem.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
+            this.backToolStripMenuItem.Name = "backToolStripMenuItem";
+            this.backToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.backToolStripMenuItem.Text = "Back";
+            this.backToolStripMenuItem.Click += new System.EventHandler(this.backToolStripMenuItem_Click);
+            // 
+            // forwardToolStripMenuItem
+            // 
+            this.forwardToolStripMenuItem.Enabled = false;
+            this.forwardToolStripMenuItem.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
+            this.forwardToolStripMenuItem.Name = "forwardToolStripMenuItem";
+            this.forwardToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.forwardToolStripMenuItem.Text = "Forward";
+            this.forwardToolStripMenuItem.Click += new System.EventHandler(this.forwardToolStripMenuItem_Click);
+            // 
             // usb2snes
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -294,6 +323,7 @@
             this.Controls.Add(this.comboBoxPort);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.buttonDownload);
+            this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
             this.Name = "usb2snes";
             this.Text = "usb2snes";
@@ -321,7 +351,9 @@
         private System.Windows.Forms.Button buttonBoot;
         private System.Windows.Forms.ImageList imageList;
 
+        private string remoteDirPrev = "";
         private string remoteDir = "";
+        private string remoteDirNext = "";
         private string localDir = "";
         private System.Windows.Forms.ContextMenuStrip contextMenuStripRemote;
         private System.Windows.Forms.ToolStripMenuItem downloadToolStripMenuItem;
@@ -337,6 +369,9 @@
         private System.Windows.Forms.ToolStripMenuItem renameToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+        private System.Windows.Forms.ToolStripMenuItem backToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem forwardToolStripMenuItem;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
     }
 }
 
