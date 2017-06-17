@@ -40,8 +40,6 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(usb2snes));
-            this.buttonUpload = new System.Windows.Forms.Button();
-            this.buttonDownload = new System.Windows.Forms.Button();
             this.serialPort1 = new System.IO.Ports.SerialPort(this.components);
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
@@ -49,59 +47,46 @@
             this.comboBoxPort = new System.Windows.Forms.ComboBox();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
-            this.buttonBoot = new System.Windows.Forms.Button();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.contextMenuStripRemote = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.uploadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.makeDirToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.downloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.bootToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-            this.deleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.renameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.deleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.bootToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.listViewRemote = new System.Windows.Forms.ListView();
             this.buttonMkdir = new System.Windows.Forms.Button();
             this.buttonDelete = new System.Windows.Forms.Button();
             this.buttonRename = new System.Windows.Forms.Button();
-            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
+            this.listViewLocal = new System.Windows.Forms.ListView();
+            this.buttonBoot = new System.Windows.Forms.Button();
+            this.contextMenuStripLocal = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+            this.makeDirToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.renameToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.refreshToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.buttonUpload = new System.Windows.Forms.Button();
             this.buttonRefresh = new System.Windows.Forms.Button();
+            this.buttonDownload = new System.Windows.Forms.Button();
+            this.refreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.backToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.forwardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.backToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.forwardToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
+            this.contextMenuStripLocal.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // buttonUpload
-            // 
-            this.buttonUpload.Enabled = false;
-            this.buttonUpload.Location = new System.Drawing.Point(19, 181);
-            this.buttonUpload.Name = "buttonUpload";
-            this.buttonUpload.Size = new System.Drawing.Size(63, 23);
-            this.buttonUpload.TabIndex = 0;
-            this.buttonUpload.Text = "Upload";
-            this.buttonUpload.UseVisualStyleBackColor = true;
-            this.buttonUpload.Click += new System.EventHandler(this.buttonUpload_Click);
-            // 
-            // buttonDownload
-            // 
-            this.buttonDownload.Enabled = false;
-            this.buttonDownload.Location = new System.Drawing.Point(88, 181);
-            this.buttonDownload.Name = "buttonDownload";
-            this.buttonDownload.Size = new System.Drawing.Size(63, 23);
-            this.buttonDownload.TabIndex = 1;
-            this.buttonDownload.Text = "Download";
-            this.buttonDownload.UseVisualStyleBackColor = true;
-            this.buttonDownload.Click += new System.EventHandler(this.buttonDownload_Click);
             // 
             // statusStrip1
             // 
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripProgressBar1,
             this.toolStripStatusLabel1});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 238);
+            this.statusStrip1.Location = new System.Drawing.Point(0, 350);
             this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(448, 22);
+            this.statusStrip1.Size = new System.Drawing.Size(620, 22);
             this.statusStrip1.TabIndex = 2;
             this.statusStrip1.Text = "statusStrip1";
             // 
@@ -115,7 +100,7 @@
             // 
             this.toolStripStatusLabel1.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
             this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
-            this.toolStripStatusLabel1.Size = new System.Drawing.Size(331, 17);
+            this.toolStripStatusLabel1.Size = new System.Drawing.Size(503, 17);
             this.toolStripStatusLabel1.Spring = true;
             this.toolStripStatusLabel1.Text = "idle";
             this.toolStripStatusLabel1.TextAlign = System.Drawing.ContentAlignment.BottomLeft;
@@ -123,7 +108,7 @@
             // comboBoxPort
             // 
             this.comboBoxPort.FormattingEnabled = true;
-            this.comboBoxPort.Location = new System.Drawing.Point(241, 182);
+            this.comboBoxPort.Location = new System.Drawing.Point(410, 14);
             this.comboBoxPort.Name = "comboBoxPort";
             this.comboBoxPort.Size = new System.Drawing.Size(171, 21);
             this.comboBoxPort.TabIndex = 3;
@@ -133,17 +118,6 @@
             // 
             this.openFileDialog1.FileName = "openFileDialog1";
             this.openFileDialog1.Multiselect = true;
-            // 
-            // buttonBoot
-            // 
-            this.buttonBoot.Enabled = false;
-            this.buttonBoot.Location = new System.Drawing.Point(157, 181);
-            this.buttonBoot.Name = "buttonBoot";
-            this.buttonBoot.Size = new System.Drawing.Size(63, 23);
-            this.buttonBoot.TabIndex = 5;
-            this.buttonBoot.Text = "Boot";
-            this.buttonBoot.UseVisualStyleBackColor = true;
-            this.buttonBoot.Click += new System.EventHandler(this.buttonBoot_Click);
             // 
             // imageList
             // 
@@ -155,27 +129,23 @@
             // contextMenuStripRemote
             // 
             this.contextMenuStripRemote.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.refreshToolStripMenuItem,
             this.backToolStripMenuItem,
             this.forwardToolStripMenuItem,
             this.toolStripSeparator3,
-            this.uploadToolStripMenuItem,
             this.makeDirToolStripMenuItem,
-            this.toolStripSeparator1,
-            this.downloadToolStripMenuItem,
-            this.bootToolStripMenuItem,
-            this.toolStripSeparator2,
+            this.renameToolStripMenuItem,
             this.deleteToolStripMenuItem,
-            this.renameToolStripMenuItem});
+            this.toolStripSeparator2,
+            this.bootToolStripMenuItem});
             this.contextMenuStripRemote.Name = "contextMenuStrip1";
-            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 198);
+            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 170);
+            this.contextMenuStripRemote.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripRemote_Opening);
             // 
-            // uploadToolStripMenuItem
+            // toolStripSeparator3
             // 
-            this.uploadToolStripMenuItem.Enabled = false;
-            this.uploadToolStripMenuItem.Name = "uploadToolStripMenuItem";
-            this.uploadToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.uploadToolStripMenuItem.Text = "Upload";
-            this.uploadToolStripMenuItem.Click += new System.EventHandler(this.uploadToolStripMenuItem_Click);
+            this.toolStripSeparator3.Name = "toolStripSeparator3";
+            this.toolStripSeparator3.Size = new System.Drawing.Size(151, 6);
             // 
             // makeDirToolStripMenuItem
             // 
@@ -185,31 +155,13 @@
             this.makeDirToolStripMenuItem.Text = "Make Directory";
             this.makeDirToolStripMenuItem.Click += new System.EventHandler(this.makeDirToolStripMenuItem_Click);
             // 
-            // toolStripSeparator1
+            // renameToolStripMenuItem
             // 
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(151, 6);
-            // 
-            // downloadToolStripMenuItem
-            // 
-            this.downloadToolStripMenuItem.Enabled = false;
-            this.downloadToolStripMenuItem.Name = "downloadToolStripMenuItem";
-            this.downloadToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.downloadToolStripMenuItem.Text = "Download";
-            this.downloadToolStripMenuItem.Click += new System.EventHandler(this.downloadToolStripMenuItem_Click);
-            // 
-            // bootToolStripMenuItem
-            // 
-            this.bootToolStripMenuItem.Enabled = false;
-            this.bootToolStripMenuItem.Name = "bootToolStripMenuItem";
-            this.bootToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.bootToolStripMenuItem.Text = "Boot";
-            this.bootToolStripMenuItem.Click += new System.EventHandler(this.bootToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator2
-            // 
-            this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(151, 6);
+            this.renameToolStripMenuItem.Enabled = false;
+            this.renameToolStripMenuItem.Name = "renameToolStripMenuItem";
+            this.renameToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.renameToolStripMenuItem.Text = "Rename";
+            this.renameToolStripMenuItem.Click += new System.EventHandler(this.renameToolStripMenuItem_Click);
             // 
             // deleteToolStripMenuItem
             // 
@@ -219,21 +171,26 @@
             this.deleteToolStripMenuItem.Text = "Delete";
             this.deleteToolStripMenuItem.Click += new System.EventHandler(this.deleteToolStripMenuItem_Click);
             // 
-            // renameToolStripMenuItem
+            // toolStripSeparator2
             // 
-            this.renameToolStripMenuItem.Enabled = false;
-            this.renameToolStripMenuItem.Name = "renameToolStripMenuItem";
-            this.renameToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.renameToolStripMenuItem.Text = "Rename";
-            this.renameToolStripMenuItem.Click += new System.EventHandler(this.renameToolStripMenuItem_Click);
+            this.toolStripSeparator2.Name = "toolStripSeparator2";
+            this.toolStripSeparator2.Size = new System.Drawing.Size(151, 6);
+            // 
+            // bootToolStripMenuItem
+            // 
+            this.bootToolStripMenuItem.Enabled = false;
+            this.bootToolStripMenuItem.Name = "bootToolStripMenuItem";
+            this.bootToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.bootToolStripMenuItem.Text = "Boot";
+            this.bootToolStripMenuItem.Click += new System.EventHandler(this.bootToolStripMenuItem_Click);
             // 
             // listViewRemote
             // 
-            this.listViewRemote.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.listViewRemote.Location = new System.Drawing.Point(12, 12);
+            this.listViewRemote.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.listViewRemote.LabelWrap = false;
+            this.listViewRemote.Location = new System.Drawing.Point(328, 40);
             this.listViewRemote.Name = "listViewRemote";
-            this.listViewRemote.Size = new System.Drawing.Size(424, 164);
+            this.listViewRemote.Size = new System.Drawing.Size(280, 278);
             this.listViewRemote.SmallImageList = this.imageList;
             this.listViewRemote.Sorting = System.Windows.Forms.SortOrder.Ascending;
             this.listViewRemote.TabIndex = 6;
@@ -245,7 +202,7 @@
             // buttonMkdir
             // 
             this.buttonMkdir.Enabled = false;
-            this.buttonMkdir.Location = new System.Drawing.Point(19, 210);
+            this.buttonMkdir.Location = new System.Drawing.Point(338, 324);
             this.buttonMkdir.Name = "buttonMkdir";
             this.buttonMkdir.Size = new System.Drawing.Size(63, 23);
             this.buttonMkdir.TabIndex = 7;
@@ -256,7 +213,7 @@
             // buttonDelete
             // 
             this.buttonDelete.Enabled = false;
-            this.buttonDelete.Location = new System.Drawing.Point(88, 210);
+            this.buttonDelete.Location = new System.Drawing.Point(407, 324);
             this.buttonDelete.Name = "buttonDelete";
             this.buttonDelete.Size = new System.Drawing.Size(63, 23);
             this.buttonDelete.TabIndex = 8;
@@ -267,7 +224,7 @@
             // buttonRename
             // 
             this.buttonRename.Enabled = false;
-            this.buttonRename.Location = new System.Drawing.Point(157, 210);
+            this.buttonRename.Location = new System.Drawing.Point(476, 324);
             this.buttonRename.Name = "buttonRename";
             this.buttonRename.Size = new System.Drawing.Size(63, 23);
             this.buttonRename.TabIndex = 9;
@@ -275,20 +232,111 @@
             this.buttonRename.UseVisualStyleBackColor = true;
             this.buttonRename.Click += new System.EventHandler(this.buttonRename_Click);
             // 
-            // toolStripSeparator3
+            // listViewLocal
             // 
-            this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(151, 6);
+            this.listViewLocal.LabelWrap = false;
+            this.listViewLocal.Location = new System.Drawing.Point(12, 41);
+            this.listViewLocal.Name = "listViewLocal";
+            this.listViewLocal.Size = new System.Drawing.Size(277, 277);
+            this.listViewLocal.SmallImageList = this.imageList;
+            this.listViewLocal.Sorting = System.Windows.Forms.SortOrder.Ascending;
+            this.listViewLocal.TabIndex = 10;
+            this.listViewLocal.UseCompatibleStateImageBehavior = false;
+            this.listViewLocal.View = System.Windows.Forms.View.List;
+            this.listViewLocal.MouseClick += new System.Windows.Forms.MouseEventHandler(this.listViewLocal_MouseClick);
+            this.listViewLocal.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.listViewLocal_MouseDoubleClick);
+            // 
+            // buttonBoot
+            // 
+            this.buttonBoot.Enabled = false;
+            this.buttonBoot.Location = new System.Drawing.Point(545, 324);
+            this.buttonBoot.Name = "buttonBoot";
+            this.buttonBoot.Size = new System.Drawing.Size(63, 23);
+            this.buttonBoot.TabIndex = 11;
+            this.buttonBoot.Text = "Boot";
+            this.buttonBoot.UseVisualStyleBackColor = true;
+            this.buttonBoot.Click += new System.EventHandler(this.buttonBoot_Click);
+            // 
+            // contextMenuStripLocal
+            // 
+            this.contextMenuStripLocal.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.refreshToolStripMenuItem1,
+            this.backToolStripMenuItem1,
+            this.forwardToolStripMenuItem1,
+            this.toolStripSeparator1,
+            this.makeDirToolStripMenuItem1,
+            this.renameToolStripMenuItem1});
+            this.contextMenuStripLocal.Name = "contextMenuStrip1";
+            this.contextMenuStripLocal.Size = new System.Drawing.Size(155, 142);
+            // 
+            // toolStripSeparator1
+            // 
+            this.toolStripSeparator1.Name = "toolStripSeparator1";
+            this.toolStripSeparator1.Size = new System.Drawing.Size(151, 6);
+            // 
+            // makeDirToolStripMenuItem1
+            // 
+            this.makeDirToolStripMenuItem1.Name = "makeDirToolStripMenuItem1";
+            this.makeDirToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.makeDirToolStripMenuItem1.Text = "Make Directory";
+            this.makeDirToolStripMenuItem1.Click += new System.EventHandler(this.makeDirToolStripMenuItem1_Click);
+            // 
+            // renameToolStripMenuItem1
+            // 
+            this.renameToolStripMenuItem1.Name = "renameToolStripMenuItem1";
+            this.renameToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.renameToolStripMenuItem1.Text = "Rename";
+            this.renameToolStripMenuItem1.Click += new System.EventHandler(this.renameToolStripMenuItem1_Click);
+            // 
+            // refreshToolStripMenuItem1
+            // 
+            this.refreshToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.reload;
+            this.refreshToolStripMenuItem1.Name = "refreshToolStripMenuItem1";
+            this.refreshToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.refreshToolStripMenuItem1.Text = "Refresh";
+            this.refreshToolStripMenuItem1.Click += new System.EventHandler(this.refreshToolStripMenuItem1_Click);
+            // 
+            // buttonUpload
+            // 
+            this.buttonUpload.Enabled = false;
+            this.buttonUpload.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.buttonUpload.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
+            this.buttonUpload.Location = new System.Drawing.Point(295, 126);
+            this.buttonUpload.Name = "buttonUpload";
+            this.buttonUpload.Size = new System.Drawing.Size(27, 42);
+            this.buttonUpload.TabIndex = 0;
+            this.buttonUpload.UseVisualStyleBackColor = true;
+            this.buttonUpload.Click += new System.EventHandler(this.buttonUpload_Click);
             // 
             // buttonRefresh
             // 
             this.buttonRefresh.Image = ((System.Drawing.Image)(resources.GetObject("buttonRefresh.Image")));
-            this.buttonRefresh.Location = new System.Drawing.Point(415, 181);
+            this.buttonRefresh.Location = new System.Drawing.Point(587, 13);
             this.buttonRefresh.Name = "buttonRefresh";
             this.buttonRefresh.Size = new System.Drawing.Size(21, 23);
             this.buttonRefresh.TabIndex = 4;
             this.buttonRefresh.UseVisualStyleBackColor = true;
             this.buttonRefresh.Click += new System.EventHandler(this.buttonRefresh_Click);
+            // 
+            // buttonDownload
+            // 
+            this.buttonDownload.Enabled = false;
+            this.buttonDownload.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
+            this.buttonDownload.Location = new System.Drawing.Point(295, 183);
+            this.buttonDownload.Name = "buttonDownload";
+            this.buttonDownload.Size = new System.Drawing.Size(27, 42);
+            this.buttonDownload.TabIndex = 1;
+            this.buttonDownload.UseVisualStyleBackColor = true;
+            this.buttonDownload.Click += new System.EventHandler(this.buttonDownload_Click);
+            // 
+            // refreshToolStripMenuItem
+            // 
+            this.refreshToolStripMenuItem.Enabled = false;
+            this.refreshToolStripMenuItem.Image = global::usb2snes.Properties.Resources.reload;
+            this.refreshToolStripMenuItem.Name = "refreshToolStripMenuItem";
+            this.refreshToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.refreshToolStripMenuItem.Text = "Refresh";
+            this.refreshToolStripMenuItem.Click += new System.EventHandler(this.refreshToolStripMenuItem_Click);
             // 
             // backToolStripMenuItem
             // 
@@ -308,16 +356,33 @@
             this.forwardToolStripMenuItem.Text = "Forward";
             this.forwardToolStripMenuItem.Click += new System.EventHandler(this.forwardToolStripMenuItem_Click);
             // 
+            // backToolStripMenuItem1
+            // 
+            this.backToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
+            this.backToolStripMenuItem1.Name = "backToolStripMenuItem1";
+            this.backToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.backToolStripMenuItem1.Text = "Back";
+            this.backToolStripMenuItem1.Click += new System.EventHandler(this.backToolStripMenuItem1_Click);
+            // 
+            // forwardToolStripMenuItem1
+            // 
+            this.forwardToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
+            this.forwardToolStripMenuItem1.Name = "forwardToolStripMenuItem1";
+            this.forwardToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.forwardToolStripMenuItem1.Text = "Forward";
+            this.forwardToolStripMenuItem1.Click += new System.EventHandler(this.forwardToolStripMenuItem1_Click);
+            // 
             // usb2snes
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(448, 260);
+            this.ClientSize = new System.Drawing.Size(620, 372);
+            this.Controls.Add(this.buttonBoot);
+            this.Controls.Add(this.listViewLocal);
             this.Controls.Add(this.buttonRename);
             this.Controls.Add(this.buttonDelete);
             this.Controls.Add(this.buttonMkdir);
             this.Controls.Add(this.listViewRemote);
-            this.Controls.Add(this.buttonBoot);
             this.Controls.Add(this.buttonUpload);
             this.Controls.Add(this.buttonRefresh);
             this.Controls.Add(this.comboBoxPort);
@@ -325,12 +390,16 @@
             this.Controls.Add(this.buttonDownload);
             this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
+            this.KeyPreview = true;
             this.Name = "usb2snes";
             this.Text = "usb2snes";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.usb2snes_FormClosed);
             this.Load += new System.EventHandler(this.usb2snes_Load);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.usb2snes_KeyDown);
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
             this.contextMenuStripRemote.ResumeLayout(false);
+            this.contextMenuStripLocal.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -348,15 +417,15 @@
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
         private System.Windows.Forms.Button buttonRefresh;
-        private System.Windows.Forms.Button buttonBoot;
         private System.Windows.Forms.ImageList imageList;
 
         private string remoteDirPrev = "";
         private string remoteDir = "";
         private string remoteDirNext = "";
+        private string localDirPrev = "";
         private string localDir = "";
+        private string localDirNext = "";
         private System.Windows.Forms.ContextMenuStrip contextMenuStripRemote;
-        private System.Windows.Forms.ToolStripMenuItem downloadToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem deleteToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem makeDirToolStripMenuItem;
         private System.Windows.Forms.ListView listViewRemote;
@@ -364,14 +433,22 @@
         private System.Windows.Forms.Button buttonMkdir;
         private System.Windows.Forms.Button buttonDelete;
         private System.Windows.Forms.Button buttonRename;
-        private System.Windows.Forms.ToolStripMenuItem uploadToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem bootToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem renameToolStripMenuItem;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem backToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem forwardToolStripMenuItem;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
+        private System.Windows.Forms.ListView listViewLocal;
+        private System.Windows.Forms.Button buttonBoot;
+        private System.Windows.Forms.ContextMenuStrip contextMenuStripLocal;
+        private System.Windows.Forms.ToolStripMenuItem backToolStripMenuItem1;
+        private System.Windows.Forms.ToolStripMenuItem forwardToolStripMenuItem1;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+        private System.Windows.Forms.ToolStripMenuItem makeDirToolStripMenuItem1;
+        private System.Windows.Forms.ToolStripMenuItem renameToolStripMenuItem1;
+        private System.Windows.Forms.ToolStripMenuItem refreshToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem refreshToolStripMenuItem1;
     }
 }
 
