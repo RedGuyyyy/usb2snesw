@@ -57,7 +57,10 @@ namespace WindowsFormsApplication1
         {
             USBINT_SERVER_FLAGS_NONE = 0,
             USBINT_SERVER_FLAGS_FAST = 1,
+            USBINT_SERVER_FLAGS_CLRX = 2,
+            USBINT_SERVER_FLAGS_SETX = 4,
         };
+
         public usb2snes()
         {
             InitializeComponent();
@@ -120,6 +123,9 @@ namespace WindowsFormsApplication1
 
                 if (item.PortDesc.Contains("sd2snes"))
                 {
+                    remoteDirPrev = "";
+                    remoteDir = "";
+                    remoteDirNext = "";
                     RefreshListViewRemote();
                 }
             }
@@ -199,7 +205,10 @@ namespace WindowsFormsApplication1
                                 curSize += bytesToWrite;
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                             }
+                            toolStripStatusLabel1.Text = "idle";
                             toolStripProgressBar1.Enabled = false;
+
+                            fs.Close();
                         }
 
                         System.Threading.Thread.Sleep(100);
@@ -207,8 +216,6 @@ namespace WindowsFormsApplication1
                         serialPort1.Close();
 
                         RefreshListViewRemote();
-
-                        toolStripStatusLabel1.Text = "idle";
                     }
                 }
             }
@@ -286,6 +293,7 @@ namespace WindowsFormsApplication1
                                     fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
                                     toolStripProgressBar1.Value = 100 * curSize / fileSize;
                                 }
+                                toolStripStatusLabel1.Text = "idle";
                                 toolStripProgressBar1.Enabled = false;
 
                                 fs.Close();
@@ -300,8 +308,6 @@ namespace WindowsFormsApplication1
 
                     RefreshListViewRemote();
                     RefreshListViewLocal();
-
-                    toolStripStatusLabel1.Text = "idle";
                 }
             }
             catch (Exception x)
@@ -324,7 +330,8 @@ namespace WindowsFormsApplication1
 
                     foreach (ListViewItem item in listViewRemote.SelectedItems)
                     {
-                        if (item.ImageIndex == 1)
+                        var ext = Path.GetExtension(item.Text);
+                        if (item.ImageIndex == 1 && (ext.Contains("sfc") | ext.Contains("smc") | ext.Contains("fig")))
                         {
                             string name = remoteDir + '/' + item.Text;
                             if (name.Length < 256)
@@ -358,7 +365,6 @@ namespace WindowsFormsApplication1
                             }
                         }
                     }
-
 
                     EnableButtons(true);
 
@@ -524,8 +530,6 @@ namespace WindowsFormsApplication1
 
                     EnableButtons(true);
                     connected = true;
-
-                    toolStripStatusLabel1.Text = "idle";
                 }
             }
             catch (Exception x)
@@ -548,7 +552,7 @@ namespace WindowsFormsApplication1
                 foreach (string name in names)
                 {
                     int type = (File.GetAttributes(name) & FileAttributes.Directory) == FileAttributes.Directory ? 0 : 1;
-                    if (type == 1 && Path.GetExtension(name).ToLower() != ".sfc" && Path.GetExtension(name).ToLower() != ".smc") continue;
+                    if (type == 1 && Path.GetExtension(name).ToLower() != ".sfc" && Path.GetExtension(name).ToLower() != ".smc" && Path.GetExtension(name).ToLower() != ".fig") continue;
 
                     ListViewItem item = new ListViewItem(System.IO.Path.GetFileName(name), type);
                     ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[] { new ListViewItem.ListViewSubItem(item, type == 0 ? "Directory" : "File"), new ListViewItem.ListViewSubItem(item, "") };
@@ -1142,6 +1146,426 @@ namespace WindowsFormsApplication1
         private void refreshToolStripMenuItem1_Click(object sender, EventArgs e)
         {
             RefreshListViewLocal();
+        }
+
+        private void buttonPatch_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    openFileDialog1.Title = "RAM IPS file to load";
+                    openFileDialog1.Filter = "IPS File|*.ips"
+                                           + "|All Files|*.*";
+                    openFileDialog1.FileName = "";
+
+                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        //if (listViewLocal.SelectedItems.Count > 0)
+                        //{
+                        EnableButtons(false);
+
+                        ConnectUSB();
+
+                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                        //foreach (ListViewItem item in listViewLocal.SelectedItems)
+                        {
+                            string fileName = openFileDialog1.FileNames[i];
+                            string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                            applyPatch(fileName, safeFileName);
+                        }
+
+                        System.Threading.Thread.Sleep(100);
+
+                        serialPort1.Close();
+
+                        EnableButtons(true);
+                        //RefreshListViewRemote();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                try { serialPort1.Close(); } catch (Exception x1) { }
+                connected = false;
+            }
+        }
+
+        private class IPS
+        {
+            public IPS() { Items = new List<Patch>(); }
+
+            public class Patch
+            {
+                public Patch() { data = new List<Byte>(); }
+
+                public int        address; // 24b file address
+                public List<Byte> data;
+            }
+
+            public List<Patch> Items;
+
+            public void Parse(string fileName)
+            {
+                int index = 0;
+
+                FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                // make sure the first few characters match string
+                byte[] buffer = new byte[512];
+
+                System.Text.UTF8Encoding enc = new System.Text.UTF8Encoding();
+                fs.Read(buffer, 0, 5);
+                for (int i = 0; i < 5; i++)
+                {
+                    if (buffer[i] != enc.GetBytes("PATCH")[i])
+                        throw new Exception("IPS: error parsing PATCH");
+                }
+                index += 5;
+
+                bool foundEOF = false;
+                while (!foundEOF)
+                {
+                    int bytesRead = 0;
+
+                    // read address
+                    bytesRead = fs.Read(buffer, 0, 3);
+                    // check EOF
+                    if (index == fs.Length - 3 || index == fs.Length - 6)
+                    {
+                        foundEOF = true;
+                        // check for EOF
+                        for (int i = 0; i < 3; i++)
+                        {
+                            if (buffer[i] != enc.GetBytes("EOF")[i])
+                            {
+                                foundEOF = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!foundEOF)
+                    {
+                        Patch patch = new Patch();
+                        Items.Add(patch);
+
+                        // get address
+                        if (bytesRead != 3) throw new Exception("IPS: error parsing address");
+                        patch.address = buffer[0]; patch.address <<= 8;
+                        patch.address |= buffer[1]; patch.address <<= 8;
+                        patch.address |= buffer[2]; patch.address <<= 0;
+                        index += bytesRead;
+
+                        // get length
+                        bytesRead = fs.Read(buffer, 0, 2);
+                        if (bytesRead != 2) throw new Exception("IPS: error parsing length");
+                        int length = buffer[0]; length <<= 8;
+                        length |= buffer[1]; length <<= 0;
+                        index += bytesRead;
+
+                        // check if RLE
+                        if (length == 0)
+                        {
+                            // RLE
+                            bytesRead = fs.Read(buffer, 0, 3);
+                            if (bytesRead != 3) throw new Exception("IPS: error parsing RLE count/byte");
+                            int count = buffer[0]; count <<= 8;
+                            count |= buffer[1]; count <<= 0;
+                            Byte val = buffer[2];
+                            index += bytesRead;
+
+                            patch.data.AddRange(Enumerable.Repeat(val, count));
+                        }
+                        else
+                        {
+                            int count = 0;
+                            while (count < length)
+                            {
+                                bytesRead = fs.Read(buffer, 0, Math.Min(buffer.Length, length - count));
+                                if (bytesRead == 0) throw new Exception("IPS: error parsing data");
+                                count += bytesRead;
+                                index += bytesRead;
+                                patch.data.AddRange(buffer.Take(bytesRead));
+                            }
+                        }
+                    }
+                }
+
+                // ignore truncation
+                if (index != fs.Length && index != fs.Length - 3)
+                    throw new Exception("IPS: unexpected end of file");
+
+                fs.Close();
+            }
+        }
+
+        private void applyPatch(string fileName, string safeFileName)
+        {
+            for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+            {
+                IPS ips = new IPS();
+                ips.Parse(fileName);
+
+                //{
+                //FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+
+                byte[] tBuffer = new byte[512];
+                int curSize = 0;
+
+                // send write command
+                int patchNum = 0;
+                foreach (var patch in ips.Items)
+                {
+                    Array.Clear(tBuffer, 0, tBuffer.Length);
+                    tBuffer[0] = Convert.ToByte('U');
+                    tBuffer[1] = Convert.ToByte('S');
+                    tBuffer[2] = Convert.ToByte('B');
+                    tBuffer[3] = Convert.ToByte('A');
+                    tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT); // opcode
+                    tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_SNES); // space
+                    tBuffer[6] = Convert.ToByte((patchNum == 0 && i == 0) ? usbint_server_flags_e.USBINT_SERVER_FLAGS_CLRX
+                                               : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? usbint_server_flags_e.USBINT_SERVER_FLAGS_SETX
+                                               : usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE);
+
+                    long fileSize = patch.data.Count;
+                    tBuffer[252] = Convert.ToByte((fileSize >> 24) & 0xFF);
+                    tBuffer[253] = Convert.ToByte((fileSize >> 16) & 0xFF);
+                    tBuffer[254] = Convert.ToByte((fileSize >> 8) & 0xFF);
+                    tBuffer[255] = Convert.ToByte((fileSize >> 0) & 0xFF);
+
+                    // temp offset
+                    //tBuffer[256] = 0x00;
+                    //tBuffer[257] = 0x20;
+                    //tBuffer[258] = 0x00;
+                    //tBuffer[259] = 0x00;
+                    tBuffer[256] = Convert.ToByte((patch.address >> 24) & 0xFF);
+                    tBuffer[257] = Convert.ToByte((patch.address >> 16) & 0xFF);
+                    tBuffer[258] = Convert.ToByte((patch.address >> 8) & 0xFF);
+                    tBuffer[259] = Convert.ToByte((patch.address >> 0) & 0xFF);
+
+                    System.Threading.Thread.Sleep(100);
+                    serialPort1.Write(tBuffer, 0, tBuffer.Length);
+
+                    // read info
+                    Array.Clear(tBuffer, 0, tBuffer.Length);
+                    curSize = 0;
+                    System.Threading.Thread.Sleep(100);
+                    while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+
+                    // write data
+                    Array.Clear(tBuffer, 0, tBuffer.Length);
+                    curSize = 0;
+                    toolStripProgressBar1.Value = 0;
+                    toolStripProgressBar1.Enabled = true;
+                    toolStripStatusLabel1.Text = "uploading ram: " + safeFileName;
+
+                    System.Threading.Thread.Sleep(100);
+                    while (curSize < patch.data.Count)
+                    {
+                        int bytesToWrite = Math.Min(512, patch.data.Count - curSize);
+                        Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
+                        serialPort1.Write(tBuffer, 0, tBuffer.Length);
+                        curSize += bytesToWrite;
+                        toolStripProgressBar1.Value = 100 * curSize / patch.data.Count;
+                    }
+                    toolStripStatusLabel1.Text = "idle";
+                    toolStripProgressBar1.Enabled = false;
+
+                    patchNum++;
+                }
+                //fs.Close();
+            }
+        }
+
+        private void buttonGetState_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    EnableButtons(false);
+
+                    ConnectUSB();
+
+                    saveFileDialog1.Title = "State file to Save";
+                    saveFileDialog1.Filter = "STATE File|*.ss0"
+                                           + "|All Files|*.*";
+                    saveFileDialog1.FileName = "save.ss0";
+
+                    if (saveFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        FileStream fs = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write);
+                        //BinaryWriter bs = new BinaryWriter(fs);
+
+                        byte[] tBuffer = new byte[512];
+                        int curSize = 0;
+
+                        // send read command
+                        Array.Clear(tBuffer, 0, tBuffer.Length);
+                        tBuffer[0] = Convert.ToByte('U');
+                        tBuffer[1] = Convert.ToByte('S');
+                        tBuffer[2] = Convert.ToByte('B');
+                        tBuffer[3] = Convert.ToByte('A');
+                        tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET); // opcode
+                        tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_SNES); // space
+                        tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
+
+                        // size - 256KB
+                        tBuffer[252] = 0x00;
+                        tBuffer[253] = 0x04;
+                        tBuffer[254] = 0x00;
+                        tBuffer[255] = 0x00;
+
+                        // patch region
+                        tBuffer[256] = 0x00;
+                        tBuffer[257] = 0xF0;
+                        tBuffer[258] = 0x00;
+                        tBuffer[259] = 0x00;
+
+                        serialPort1.Write(tBuffer, 0, tBuffer.Length);
+
+                        // read response
+                        Array.Clear(tBuffer, 0, tBuffer.Length);
+                        curSize = 0;
+                        while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                        int fileSize = 0;
+                        fileSize |= tBuffer[252]; fileSize <<= 8;
+                        fileSize |= tBuffer[253]; fileSize <<= 8;
+                        fileSize |= tBuffer[254]; fileSize <<= 8;
+                        fileSize |= tBuffer[255]; fileSize <<= 0;
+
+                        // read data
+                        Array.Clear(tBuffer, 0, tBuffer.Length);
+                        curSize = 0;
+                        toolStripProgressBar1.Value = 0;
+                        toolStripProgressBar1.Enabled = true;
+                        toolStripStatusLabel1.Text = "downloading: " + saveFileDialog1.FileName;
+                        while (curSize < fileSize)
+                        {
+                            int prevSize = curSize;
+                            curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                            fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
+                            toolStripProgressBar1.Value = 100 * curSize / fileSize;
+                        }
+                        toolStripStatusLabel1.Text = "idle";
+                        toolStripProgressBar1.Enabled = false;
+
+                        fs.Close();
+
+                        System.Threading.Thread.Sleep(100);
+
+                        serialPort1.Close();
+
+                        RefreshListViewRemote();
+                        RefreshListViewLocal();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                try { serialPort1.Close(); } catch (Exception x1) { }
+                connected = false;
+            }
+        }
+
+
+        private void buttonSetState_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    openFileDialog1.Title = "State file to Load";
+                    openFileDialog1.Filter = "STATE File|*.ss0"
+                                           + "|All Files|*.*";
+                    openFileDialog1.FileName = "save.ss0";
+
+                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                    //if (listViewLocal.SelectedItems.Count > 0)
+                    //{
+                        EnableButtons(false);
+
+                        ConnectUSB();
+
+                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                        //foreach (ListViewItem item in listViewLocal.SelectedItems)
+                        {
+                            string fileName = openFileDialog1.FileNames[i];
+                            string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                            //{
+                            FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+
+                            byte[] tBuffer = new byte[512];
+                            int curSize = 0;
+
+                            // send write command
+                            Array.Clear(tBuffer, 0, tBuffer.Length);
+                            tBuffer[0] = Convert.ToByte('U');
+                            tBuffer[1] = Convert.ToByte('S');
+                            tBuffer[2] = Convert.ToByte('B');
+                            tBuffer[3] = Convert.ToByte('A');
+                            tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT); // opcode
+                            tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_SNES); // space
+                            tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
+
+                            long fileSize = new FileInfo(fileName).Length;
+                            tBuffer[252] = Convert.ToByte((fileSize >> 24) & 0xFF);
+                            tBuffer[253] = Convert.ToByte((fileSize >> 16) & 0xFF);
+                            tBuffer[254] = Convert.ToByte((fileSize >> 8) & 0xFF);
+                            tBuffer[255] = Convert.ToByte((fileSize >> 0) & 0xFF);
+
+                            // patch region
+                            tBuffer[256] = 0x00;
+                            tBuffer[257] = 0xF0;
+                            tBuffer[258] = 0x00;
+                            tBuffer[259] = 0x00;
+
+                            serialPort1.Write(tBuffer, 0, tBuffer.Length);
+
+                            // read info
+                            Array.Clear(tBuffer, 0, tBuffer.Length);
+                            curSize = 0;
+                            while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+
+                            // write data
+                            Array.Clear(tBuffer, 0, tBuffer.Length);
+                            curSize = 0;
+                            toolStripProgressBar1.Value = 0;
+                            toolStripProgressBar1.Enabled = true;
+                            toolStripStatusLabel1.Text = "uploading: " + safeFileName;
+                            while (curSize < fs.Length)
+                            {
+                                int bytesToWrite = fs.Read(tBuffer, 0, 512);
+                                serialPort1.Write(tBuffer, 0, bytesToWrite);
+                                curSize += bytesToWrite;
+                                toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
+                            }
+                            toolStripStatusLabel1.Text = "idle";
+                            toolStripProgressBar1.Enabled = false;
+
+                            fs.Close();
+                        }
+
+                        System.Threading.Thread.Sleep(100);
+
+                        serialPort1.Close();
+
+                        RefreshListViewRemote();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                try { serialPort1.Close(); } catch (Exception x1) { }
+                connected = false;
+            }
+
         }
     }
 }

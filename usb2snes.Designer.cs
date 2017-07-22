@@ -28,6 +28,9 @@
             buttonMkdir.Enabled = enable;
             buttonDelete.Enabled = enable;
             buttonRename.Enabled = enable;
+            buttonPatch.Enabled = enable;
+            buttonGetState.Enabled = enable;
+            buttonSetState.Enabled = enable;
         }
 
         #region Windows Form Designer generated code
@@ -49,6 +52,9 @@
             this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
             this.imageList = new System.Windows.Forms.ImageList(this.components);
             this.contextMenuStripRemote = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.refreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.backToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.forwardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.makeDirToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.renameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -62,18 +68,18 @@
             this.listViewLocal = new System.Windows.Forms.ListView();
             this.buttonBoot = new System.Windows.Forms.Button();
             this.contextMenuStripLocal = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.refreshToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.backToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.forwardToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.makeDirToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.renameToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.refreshToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.buttonUpload = new System.Windows.Forms.Button();
             this.buttonRefresh = new System.Windows.Forms.Button();
             this.buttonDownload = new System.Windows.Forms.Button();
-            this.refreshToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.backToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.forwardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.backToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.forwardToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.buttonPatch = new System.Windows.Forms.Button();
+            this.buttonGetState = new System.Windows.Forms.Button();
+            this.buttonSetState = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -142,6 +148,33 @@
             this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 170);
             this.contextMenuStripRemote.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripRemote_Opening);
             // 
+            // refreshToolStripMenuItem
+            // 
+            this.refreshToolStripMenuItem.Enabled = false;
+            this.refreshToolStripMenuItem.Image = global::usb2snes.Properties.Resources.reload;
+            this.refreshToolStripMenuItem.Name = "refreshToolStripMenuItem";
+            this.refreshToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.refreshToolStripMenuItem.Text = "Refresh";
+            this.refreshToolStripMenuItem.Click += new System.EventHandler(this.refreshToolStripMenuItem_Click);
+            // 
+            // backToolStripMenuItem
+            // 
+            this.backToolStripMenuItem.Enabled = false;
+            this.backToolStripMenuItem.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
+            this.backToolStripMenuItem.Name = "backToolStripMenuItem";
+            this.backToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.backToolStripMenuItem.Text = "Back";
+            this.backToolStripMenuItem.Click += new System.EventHandler(this.backToolStripMenuItem_Click);
+            // 
+            // forwardToolStripMenuItem
+            // 
+            this.forwardToolStripMenuItem.Enabled = false;
+            this.forwardToolStripMenuItem.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
+            this.forwardToolStripMenuItem.Name = "forwardToolStripMenuItem";
+            this.forwardToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.forwardToolStripMenuItem.Text = "Forward";
+            this.forwardToolStripMenuItem.Click += new System.EventHandler(this.forwardToolStripMenuItem_Click);
+            // 
             // toolStripSeparator3
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
@@ -202,9 +235,9 @@
             // buttonMkdir
             // 
             this.buttonMkdir.Enabled = false;
-            this.buttonMkdir.Location = new System.Drawing.Point(338, 324);
+            this.buttonMkdir.Location = new System.Drawing.Point(328, 324);
             this.buttonMkdir.Name = "buttonMkdir";
-            this.buttonMkdir.Size = new System.Drawing.Size(63, 23);
+            this.buttonMkdir.Size = new System.Drawing.Size(50, 23);
             this.buttonMkdir.TabIndex = 7;
             this.buttonMkdir.Text = "MkDir";
             this.buttonMkdir.UseVisualStyleBackColor = true;
@@ -213,9 +246,9 @@
             // buttonDelete
             // 
             this.buttonDelete.Enabled = false;
-            this.buttonDelete.Location = new System.Drawing.Point(407, 324);
+            this.buttonDelete.Location = new System.Drawing.Point(384, 324);
             this.buttonDelete.Name = "buttonDelete";
-            this.buttonDelete.Size = new System.Drawing.Size(63, 23);
+            this.buttonDelete.Size = new System.Drawing.Size(50, 23);
             this.buttonDelete.TabIndex = 8;
             this.buttonDelete.Text = "Delete";
             this.buttonDelete.UseVisualStyleBackColor = true;
@@ -224,9 +257,9 @@
             // buttonRename
             // 
             this.buttonRename.Enabled = false;
-            this.buttonRename.Location = new System.Drawing.Point(476, 324);
+            this.buttonRename.Location = new System.Drawing.Point(440, 324);
             this.buttonRename.Name = "buttonRename";
-            this.buttonRename.Size = new System.Drawing.Size(63, 23);
+            this.buttonRename.Size = new System.Drawing.Size(56, 23);
             this.buttonRename.TabIndex = 9;
             this.buttonRename.Text = "Rename";
             this.buttonRename.UseVisualStyleBackColor = true;
@@ -249,9 +282,9 @@
             // buttonBoot
             // 
             this.buttonBoot.Enabled = false;
-            this.buttonBoot.Location = new System.Drawing.Point(545, 324);
+            this.buttonBoot.Location = new System.Drawing.Point(502, 324);
             this.buttonBoot.Name = "buttonBoot";
-            this.buttonBoot.Size = new System.Drawing.Size(63, 23);
+            this.buttonBoot.Size = new System.Drawing.Size(48, 23);
             this.buttonBoot.TabIndex = 11;
             this.buttonBoot.Text = "Boot";
             this.buttonBoot.UseVisualStyleBackColor = true;
@@ -267,7 +300,31 @@
             this.makeDirToolStripMenuItem1,
             this.renameToolStripMenuItem1});
             this.contextMenuStripLocal.Name = "contextMenuStrip1";
-            this.contextMenuStripLocal.Size = new System.Drawing.Size(155, 142);
+            this.contextMenuStripLocal.Size = new System.Drawing.Size(155, 120);
+            // 
+            // refreshToolStripMenuItem1
+            // 
+            this.refreshToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.reload;
+            this.refreshToolStripMenuItem1.Name = "refreshToolStripMenuItem1";
+            this.refreshToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.refreshToolStripMenuItem1.Text = "Refresh";
+            this.refreshToolStripMenuItem1.Click += new System.EventHandler(this.refreshToolStripMenuItem1_Click);
+            // 
+            // backToolStripMenuItem1
+            // 
+            this.backToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
+            this.backToolStripMenuItem1.Name = "backToolStripMenuItem1";
+            this.backToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.backToolStripMenuItem1.Text = "Back";
+            this.backToolStripMenuItem1.Click += new System.EventHandler(this.backToolStripMenuItem1_Click);
+            // 
+            // forwardToolStripMenuItem1
+            // 
+            this.forwardToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
+            this.forwardToolStripMenuItem1.Name = "forwardToolStripMenuItem1";
+            this.forwardToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
+            this.forwardToolStripMenuItem1.Text = "Forward";
+            this.forwardToolStripMenuItem1.Click += new System.EventHandler(this.forwardToolStripMenuItem1_Click);
             // 
             // toolStripSeparator1
             // 
@@ -287,14 +344,6 @@
             this.renameToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
             this.renameToolStripMenuItem1.Text = "Rename";
             this.renameToolStripMenuItem1.Click += new System.EventHandler(this.renameToolStripMenuItem1_Click);
-            // 
-            // refreshToolStripMenuItem1
-            // 
-            this.refreshToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.reload;
-            this.refreshToolStripMenuItem1.Name = "refreshToolStripMenuItem1";
-            this.refreshToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
-            this.refreshToolStripMenuItem1.Text = "Refresh";
-            this.refreshToolStripMenuItem1.Click += new System.EventHandler(this.refreshToolStripMenuItem1_Click);
             // 
             // buttonUpload
             // 
@@ -329,54 +378,47 @@
             this.buttonDownload.UseVisualStyleBackColor = true;
             this.buttonDownload.Click += new System.EventHandler(this.buttonDownload_Click);
             // 
-            // refreshToolStripMenuItem
+            // buttonPatch
             // 
-            this.refreshToolStripMenuItem.Enabled = false;
-            this.refreshToolStripMenuItem.Image = global::usb2snes.Properties.Resources.reload;
-            this.refreshToolStripMenuItem.Name = "refreshToolStripMenuItem";
-            this.refreshToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.refreshToolStripMenuItem.Text = "Refresh";
-            this.refreshToolStripMenuItem.Click += new System.EventHandler(this.refreshToolStripMenuItem_Click);
+            this.buttonPatch.Enabled = false;
+            this.buttonPatch.Location = new System.Drawing.Point(556, 324);
+            this.buttonPatch.Name = "buttonPatch";
+            this.buttonPatch.Size = new System.Drawing.Size(52, 23);
+            this.buttonPatch.TabIndex = 12;
+            this.buttonPatch.Text = "Patch";
+            this.buttonPatch.UseVisualStyleBackColor = true;
+            this.buttonPatch.Click += new System.EventHandler(this.buttonPatch_Click);
             // 
-            // backToolStripMenuItem
+            // buttonGetState
             // 
-            this.backToolStripMenuItem.Enabled = false;
-            this.backToolStripMenuItem.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
-            this.backToolStripMenuItem.Name = "backToolStripMenuItem";
-            this.backToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.backToolStripMenuItem.Text = "Back";
-            this.backToolStripMenuItem.Click += new System.EventHandler(this.backToolStripMenuItem_Click);
+            this.buttonGetState.Enabled = false;
+            this.buttonGetState.Location = new System.Drawing.Point(163, 324);
+            this.buttonGetState.Name = "buttonGetState";
+            this.buttonGetState.Size = new System.Drawing.Size(60, 23);
+            this.buttonGetState.TabIndex = 13;
+            this.buttonGetState.Text = "Get State";
+            this.buttonGetState.UseVisualStyleBackColor = true;
+            this.buttonGetState.Click += new System.EventHandler(this.buttonGetState_Click);
             // 
-            // forwardToolStripMenuItem
+            // buttonSetState
             // 
-            this.forwardToolStripMenuItem.Enabled = false;
-            this.forwardToolStripMenuItem.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
-            this.forwardToolStripMenuItem.Name = "forwardToolStripMenuItem";
-            this.forwardToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.forwardToolStripMenuItem.Text = "Forward";
-            this.forwardToolStripMenuItem.Click += new System.EventHandler(this.forwardToolStripMenuItem_Click);
-            // 
-            // backToolStripMenuItem1
-            // 
-            this.backToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.gtk_goto_first_ltr;
-            this.backToolStripMenuItem1.Name = "backToolStripMenuItem1";
-            this.backToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
-            this.backToolStripMenuItem1.Text = "Back";
-            this.backToolStripMenuItem1.Click += new System.EventHandler(this.backToolStripMenuItem1_Click);
-            // 
-            // forwardToolStripMenuItem1
-            // 
-            this.forwardToolStripMenuItem1.Image = global::usb2snes.Properties.Resources.gtk_goto_last_ltr;
-            this.forwardToolStripMenuItem1.Name = "forwardToolStripMenuItem1";
-            this.forwardToolStripMenuItem1.Size = new System.Drawing.Size(154, 22);
-            this.forwardToolStripMenuItem1.Text = "Forward";
-            this.forwardToolStripMenuItem1.Click += new System.EventHandler(this.forwardToolStripMenuItem1_Click);
+            this.buttonSetState.Enabled = false;
+            this.buttonSetState.Location = new System.Drawing.Point(229, 324);
+            this.buttonSetState.Name = "buttonSetState";
+            this.buttonSetState.Size = new System.Drawing.Size(60, 23);
+            this.buttonSetState.TabIndex = 14;
+            this.buttonSetState.Text = "Set State";
+            this.buttonSetState.UseVisualStyleBackColor = true;
+            this.buttonSetState.Click += new System.EventHandler(this.buttonSetState_Click);
             // 
             // usb2snes
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(620, 372);
+            this.Controls.Add(this.buttonSetState);
+            this.Controls.Add(this.buttonGetState);
+            this.Controls.Add(this.buttonPatch);
             this.Controls.Add(this.buttonBoot);
             this.Controls.Add(this.listViewLocal);
             this.Controls.Add(this.buttonRename);
@@ -449,6 +491,9 @@
         private System.Windows.Forms.ToolStripMenuItem renameToolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem refreshToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem refreshToolStripMenuItem1;
+        private System.Windows.Forms.Button buttonPatch;
+        private System.Windows.Forms.Button buttonGetState;
+        private System.Windows.Forms.Button buttonSetState;
     }
 }
 
