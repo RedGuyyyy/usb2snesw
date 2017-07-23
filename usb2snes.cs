@@ -331,7 +331,7 @@ namespace WindowsFormsApplication1
                     foreach (ListViewItem item in listViewRemote.SelectedItems)
                     {
                         var ext = Path.GetExtension(item.Text);
-                        if (item.ImageIndex == 1 && (ext.Contains("sfc") | ext.Contains("smc") | ext.Contains("fig")))
+                        if (item.ImageIndex == 1 && (ext.ToLower().Contains("sfc") | ext.ToLower().Contains("smc") | ext.ToLower().Contains("fig")))
                         {
                             string name = remoteDir + '/' + item.Text;
                             if (name.Length < 256)
