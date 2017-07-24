@@ -55,10 +55,11 @@ namespace WindowsFormsApplication1
 
         enum usbint_server_flags_e
         {
-            USBINT_SERVER_FLAGS_NONE = 0,
-            USBINT_SERVER_FLAGS_FAST = 1,
-            USBINT_SERVER_FLAGS_CLRX = 2,
-            USBINT_SERVER_FLAGS_SETX = 4,
+            USBINT_SERVER_FLAGS_NONE      = 0,
+            USBINT_SERVER_FLAGS_SKIPRESET = 1,
+            USBINT_SERVER_FLAGS_ONLYRESET = 2,
+            USBINT_SERVER_FLAGS_CLRX      = 4,
+            USBINT_SERVER_FLAGS_SETX      = 8,
         };
 
         public usb2snes()
@@ -93,6 +94,7 @@ namespace WindowsFormsApplication1
             comboBoxPort.ResetText();
             comboBoxPort.SelectedIndex = -1;
 
+            connected = false;
             EnableButtons(false);
 
             var deviceList = Win32DeviceMgmt.GetAllCOMPorts();
@@ -148,8 +150,6 @@ namespace WindowsFormsApplication1
                     //if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
                     //{
                     if (listViewLocal.SelectedItems.Count > 0) {
-                        EnableButtons(false);
-
                         ConnectUSB();
 
                         //for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
@@ -211,7 +211,7 @@ namespace WindowsFormsApplication1
                             fs.Close();
                         }
 
-                        System.Threading.Thread.Sleep(100);
+                        //System.Threading.Thread.Sleep(100);
 
                         serialPort1.Close();
 
@@ -224,6 +224,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -233,8 +234,6 @@ namespace WindowsFormsApplication1
             {
                 if (connected)
                 {
-                    EnableButtons(false);
-
                     ConnectUSB();
 
                     foreach (ListViewItem item in listViewRemote.SelectedItems)
@@ -302,7 +301,7 @@ namespace WindowsFormsApplication1
                         }
                     }
 
-                    System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(100);
 
                     serialPort1.Close();
 
@@ -315,6 +314,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -324,8 +324,6 @@ namespace WindowsFormsApplication1
             {
                 if (connected)
                 {
-                    EnableButtons(false);
-
                     ConnectUSB();
 
                     foreach (ListViewItem item in listViewRemote.SelectedItems)
@@ -347,14 +345,14 @@ namespace WindowsFormsApplication1
                                 tBuffer[3] = Convert.ToByte('A'); // directory listing
                                 tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_BOOT); // opcode
                                 tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                                tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
+                                tBuffer[6] = Convert.ToByte(bootFlags); // flags
 
                                 // directory
                                 Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(name.ToArray()), 0, tBuffer, 256, name.Length);
 
                                 serialPort1.Write(tBuffer, 0, tBuffer.Length);
 
-                                System.Threading.Thread.Sleep(100); // for read?
+                                //System.Threading.Thread.Sleep(100); // for read?
 
                                 // read response
                                 Array.Clear(tBuffer, 0, tBuffer.Length);
@@ -366,9 +364,7 @@ namespace WindowsFormsApplication1
                         }
                     }
 
-                    EnableButtons(true);
-
-                    System.Threading.Thread.Sleep(100); // for close
+                    //System.Threading.Thread.Sleep(100); // for close
 
                     serialPort1.Close();
                 }
@@ -378,6 +374,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -446,11 +443,9 @@ namespace WindowsFormsApplication1
             {
                 if (!serialPort1.IsOpen)
                 {
-                    listViewRemote.Clear();
-
-                    EnableButtons(false);
-
                     ConnectUSB();
+
+                    listViewRemote.Clear();
 
                     int curSize = 0;
                     byte[] tBuffer = new byte[512];
@@ -528,8 +523,8 @@ namespace WindowsFormsApplication1
 
                     serialPort1.Close();
 
-                    EnableButtons(true);
                     connected = true;
+                    EnableButtons(true);
                 }
             }
             catch (Exception x)
@@ -537,6 +532,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -568,6 +564,7 @@ namespace WindowsFormsApplication1
 
         private void ConnectUSB()
         {
+            if ((Item)comboBoxPort.SelectedItem == null) buttonRefresh.PerformClick();
             Item item = (Item)comboBoxPort.SelectedItem;
 
             serialPort1.PortName = item.PortName;
@@ -577,8 +574,11 @@ namespace WindowsFormsApplication1
             serialPort1.StopBits = StopBits.One;
             serialPort1.Handshake = Handshake.None;
 
-            serialPort1.ReadTimeout = 500;
-            serialPort1.WriteTimeout = 500;
+            //serialPort1.ReadTimeout = 500;
+            //serialPort1.WriteTimeout = 500;
+            // Support long timeout (infinite may lock up app)
+            serialPort1.ReadTimeout = 10000;
+            serialPort1.WriteTimeout = 10000;
 
             serialPort1.Open();
         }
@@ -735,8 +735,6 @@ namespace WindowsFormsApplication1
                         string name = remoteDir + '/' + dirName;
                         if (name.Length < 256)
                         {
-                            EnableButtons(false);
-
                             ConnectUSB();
 
                             byte[] tBuffer = new byte[512];
@@ -773,6 +771,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -789,8 +788,6 @@ namespace WindowsFormsApplication1
 
                         if (newName != "" && name.Length < 256 && newName.Length < 256 - 8)
                         {
-                            EnableButtons(false);
-
                             ConnectUSB();
 
                             byte[] tBuffer = new byte[512];
@@ -830,6 +827,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -850,8 +848,6 @@ namespace WindowsFormsApplication1
                                 string name = remoteDir + '/' + item.Text;
                                 if (name.Length < 256)
                                 {
-                                    EnableButtons(false);
-
                                     ConnectUSB();
 
                                     byte[] tBuffer = new byte[512];
@@ -890,6 +886,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
 
         }
@@ -1163,7 +1160,6 @@ namespace WindowsFormsApplication1
                     {
                         //if (listViewLocal.SelectedItems.Count > 0)
                         //{
-                        EnableButtons(false);
 
                         ConnectUSB();
 
@@ -1174,13 +1170,12 @@ namespace WindowsFormsApplication1
                             string safeFileName = openFileDialog1.SafeFileNames[i];
 
                             applyPatch(fileName, safeFileName);
-                        }
 
-                        System.Threading.Thread.Sleep(100);
+                            //System.Threading.Thread.Sleep(100);
+                        }
 
                         serialPort1.Close();
 
-                        EnableButtons(true);
                         //RefreshListViewRemote();
                     }
                 }
@@ -1190,6 +1185,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -1345,13 +1341,15 @@ namespace WindowsFormsApplication1
                     tBuffer[258] = Convert.ToByte((patch.address >> 8) & 0xFF);
                     tBuffer[259] = Convert.ToByte((patch.address >> 0) & 0xFF);
 
-                    System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(30);
                     serialPort1.Write(tBuffer, 0, tBuffer.Length);
 
                     // read info
                     Array.Clear(tBuffer, 0, tBuffer.Length);
                     curSize = 0;
-                    System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(30);
                     while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
 
                     // write data
@@ -1361,10 +1359,12 @@ namespace WindowsFormsApplication1
                     toolStripProgressBar1.Enabled = true;
                     toolStripStatusLabel1.Text = "uploading ram: " + safeFileName;
 
-                    System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(100);
+                    //System.Threading.Thread.Sleep(30);
                     while (curSize < patch.data.Count)
                     {
                         int bytesToWrite = Math.Min(512, patch.data.Count - curSize);
+                        Array.Clear(tBuffer, 0, tBuffer.Length);
                         Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
                         serialPort1.Write(tBuffer, 0, tBuffer.Length);
                         curSize += bytesToWrite;
@@ -1385,8 +1385,6 @@ namespace WindowsFormsApplication1
             {
                 if (connected)
                 {
-                    EnableButtons(false);
-
                     ConnectUSB();
 
                     saveFileDialog1.Title = "State file to Save";
@@ -1454,7 +1452,7 @@ namespace WindowsFormsApplication1
 
                         fs.Close();
 
-                        System.Threading.Thread.Sleep(100);
+                        //System.Threading.Thread.Sleep(100);
 
                         serialPort1.Close();
 
@@ -1468,6 +1466,7 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
         }
 
@@ -1487,8 +1486,6 @@ namespace WindowsFormsApplication1
                     {
                     //if (listViewLocal.SelectedItems.Count > 0)
                     //{
-                        EnableButtons(false);
-
                         ConnectUSB();
 
                         for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
@@ -1551,7 +1548,7 @@ namespace WindowsFormsApplication1
                             fs.Close();
                         }
 
-                        System.Threading.Thread.Sleep(100);
+                        //System.Threading.Thread.Sleep(100);
 
                         serialPort1.Close();
 
@@ -1564,8 +1561,64 @@ namespace WindowsFormsApplication1
                 toolStripStatusLabel1.Text = x.Message.ToString();
                 try { serialPort1.Close(); } catch (Exception x1) { }
                 connected = false;
+                EnableButtons(false);
             }
 
+        }
+
+        private void buttonTest_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    openFileDialog1.Title = "RAM IPS file to load";
+                    openFileDialog1.Filter = "IPS File|*.ips"
+                                           + "|All Files|*.*";
+                    openFileDialog1.FileName = "";
+
+                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        // boot currently selected ROM
+                        bootFlags = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_SKIPRESET);
+                        buttonBoot.PerformClick();
+                        bootFlags = 0;
+
+                        //System.Threading.Thread.Sleep(2000);
+                        //System.Threading.Thread.Sleep(2000);
+
+                        // apply the selected patch
+                        ConnectUSB();
+
+                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                        //foreach (ListViewItem item in listViewLocal.SelectedItems)
+                        {
+                            string fileName = openFileDialog1.FileNames[i];
+                            string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                            applyPatch(fileName, safeFileName);
+                        }
+
+                        serialPort1.Close();
+
+                        //System.Threading.Thread.Sleep(100);
+
+                        // perform reset
+                        bootFlags = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_ONLYRESET);
+                        buttonBoot.PerformClick();
+                        bootFlags = 0;
+
+                        //RefreshListViewRemote();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                try { serialPort1.Close(); } catch (Exception x1) { }
+                connected = false;
+                EnableButtons(false);
+            }
         }
     }
 }

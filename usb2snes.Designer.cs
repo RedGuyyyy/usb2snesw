@@ -31,6 +31,8 @@
             buttonPatch.Enabled = enable;
             buttonGetState.Enabled = enable;
             buttonSetState.Enabled = enable;
+
+            buttonTest.Enabled = enable;
         }
 
         #region Windows Form Designer generated code
@@ -80,6 +82,7 @@
             this.buttonPatch = new System.Windows.Forms.Button();
             this.buttonGetState = new System.Windows.Forms.Button();
             this.buttonSetState = new System.Windows.Forms.Button();
+            this.buttonTest = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -220,6 +223,7 @@
             // listViewRemote
             // 
             this.listViewRemote.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.listViewRemote.HideSelection = false;
             this.listViewRemote.LabelWrap = false;
             this.listViewRemote.Location = new System.Drawing.Point(328, 40);
             this.listViewRemote.Name = "listViewRemote";
@@ -411,11 +415,24 @@
             this.buttonSetState.UseVisualStyleBackColor = true;
             this.buttonSetState.Click += new System.EventHandler(this.buttonSetState_Click);
             // 
+            // buttonTest
+            // 
+            this.buttonTest.Enabled = false;
+            this.buttonTest.Location = new System.Drawing.Point(12, 324);
+            this.buttonTest.Name = "buttonTest";
+            this.buttonTest.Size = new System.Drawing.Size(60, 23);
+            this.buttonTest.TabIndex = 15;
+            this.buttonTest.Text = "Test";
+            this.buttonTest.UseVisualStyleBackColor = true;
+            this.buttonTest.Visible = false;
+            this.buttonTest.Click += new System.EventHandler(this.buttonTest_Click);
+            // 
             // usb2snes
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(620, 372);
+            this.Controls.Add(this.buttonTest);
             this.Controls.Add(this.buttonSetState);
             this.Controls.Add(this.buttonGetState);
             this.Controls.Add(this.buttonPatch);
@@ -467,6 +484,7 @@
         private string localDirPrev = "";
         private string localDir = "";
         private string localDirNext = "";
+        int bootFlags = 0;
         private System.Windows.Forms.ContextMenuStrip contextMenuStripRemote;
         private System.Windows.Forms.ToolStripMenuItem deleteToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem makeDirToolStripMenuItem;
@@ -494,6 +512,7 @@
         private System.Windows.Forms.Button buttonPatch;
         private System.Windows.Forms.Button buttonGetState;
         private System.Windows.Forms.Button buttonSetState;
+        private System.Windows.Forms.Button buttonTest;
     }
 }
 
@@ -839,8 +858,15 @@ namespace usb2snes.utils
                         DeviceInfo deviceInfo = new DeviceInfo();
                         deviceInfo.name = GetDeviceName(hDeviceInfoSet, deviceInfoData);
                         deviceInfo.description = GetDeviceDescription(hDeviceInfoSet, deviceInfoData);
-                        deviceInfo.bus_description = GetDeviceBusDescription(hDeviceInfoSet, deviceInfoData);
-                        devices.Add(deviceInfo);
+                        try
+                        {
+                            deviceInfo.bus_description = GetDeviceBusDescription(hDeviceInfoSet, deviceInfoData);
+                            devices.Add(deviceInfo);
+                        }
+                        catch (Exception e)
+                        {
+                            // ignore device that excepts
+                        }
 
                         iMemberIndex++;
                     }
