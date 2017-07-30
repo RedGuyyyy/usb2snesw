@@ -94,6 +94,12 @@
   <ItemGroup>
     <None Include="Resources\reload.png" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="usb2snescore\usb2snescore.csproj">
+      <Project>{73da4fd4-4480-49db-9c91-e649f5b3b3c6}</Project>
+      <Name>usb2snescore</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

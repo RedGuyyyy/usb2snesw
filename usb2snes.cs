@@ -13,6 +13,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
+using usb2snes.core;
 using usb2snes.utils;
 using usb2snes.Properties;
 
@@ -20,48 +21,6 @@ namespace WindowsFormsApplication1
 {
     public partial class usb2snes : Form
     {
-        enum usbint_server_opcode_e
-        {
-            // address space operations
-            USBINT_SERVER_OPCODE_GET = 0,
-            USBINT_SERVER_OPCODE_PUT,
-            USBINT_SERVER_OPCODE_EXECUTE,
-            USBINT_SERVER_OPCODE_ATOMIC,
-
-            // file system operations
-            USBINT_SERVER_OPCODE_LS,
-            USBINT_SERVER_OPCODE_MKDIR,
-            USBINT_SERVER_OPCODE_RM,
-            USBINT_SERVER_OPCODE_MV,
-
-            // special operations
-            USBINT_SERVER_OPCODE_RESET,
-            USBINT_SERVER_OPCODE_BOOT,
-            USBINT_SERVER_OPCODE_MENU_LOCK,
-            USBINT_SERVER_OPCODE_MENU_UNLOCK,
-            USBINT_SERVER_OPCODE_MENU_RESET,
-            USBINT_SERVER_OPCODE_EXE,
-            USBINT_SERVER_OPCODE_TIME,
-
-            // response
-            USBINT_SERVER_OPCODE_RESPONSE,
-        };
-
-        enum usbint_server_space_e
-        {
-            USBINT_SERVER_SPACE_FILE = 0,
-            USBINT_SERVER_SPACE_SNES,
-        };
-
-        enum usbint_server_flags_e
-        {
-            USBINT_SERVER_FLAGS_NONE      = 0,
-            USBINT_SERVER_FLAGS_SKIPRESET = 1,
-            USBINT_SERVER_FLAGS_ONLYRESET = 2,
-            USBINT_SERVER_FLAGS_CLRX      = 4,
-            USBINT_SERVER_FLAGS_SETX      = 8,
-        };
-
         public usb2snes()
         {
             InitializeComponent();
@@ -69,329 +28,6 @@ namespace WindowsFormsApplication1
             listViewRemote.ListViewItemSorter = new Sorter();
             listViewLocal.ListViewItemSorter = new Sorter();
         }
-
-        // item
-        private class Item
-        {
-            public string PortName;
-            public string PortDesc;
-
-            public Item(string name, string desc)
-            {
-                PortName = name;
-                PortDesc = desc;
-            }
-
-            public override string ToString()
-            {
-                return PortDesc;
-            }
-        }
-
-        private void buttonRefresh_Click(object sender, EventArgs e)
-        {
-            comboBoxPort.Items.Clear();
-            comboBoxPort.ResetText();
-            comboBoxPort.SelectedIndex = -1;
-
-            connected = false;
-            EnableButtons(false);
-
-            var deviceList = Win32DeviceMgmt.GetAllCOMPorts();
-            bool found = false;
-            foreach (var device in deviceList)
-            {
-                if (device.bus_description.Contains("sd2snes"))
-                {
-                    Item item = new Item(device.name.Trim(), device.name.Trim() + " - " + device.bus_description.Trim() + " - " + device.description.Trim());
-                    int index = comboBoxPort.Items.Add(item);
-                    if (!found)
-                    {
-                        found = true;
-                        comboBoxPort.SelectedIndex = index;
-                    }
-                }
-            }
-        }
-
-        private void comboBoxPort_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            EnableButtons(false);
-            connected = false;
-
-            if (comboBoxPort.SelectedIndex >= 0)
-            {
-                Item item = (Item)comboBoxPort.SelectedItem;
-
-                if (item.PortDesc.Contains("sd2snes"))
-                {
-                    remoteDirPrev = "";
-                    remoteDir = "";
-                    remoteDirNext = "";
-                    RefreshListViewRemote();
-                }
-            }
-        }
-
-        private void buttonUpload_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    //openFileDialog1.Title = "ROM file to load";
-                    //openFileDialog1.Filter = "ROM File|*.sfc;*.smc"
-                    //                       + "|SRAM File|*.srm"
-                    //                       + "|Cheat File|*.yml"
-                    //                       + "|All Supported Types|*.sfc;*.smc;*.srm;*.yml"
-                    //                       + "|All Files|*.*";
-                    //openFileDialog1.FileName = "";
-
-                    //if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
-                    //{
-                    if (listViewLocal.SelectedItems.Count > 0) {
-                        ConnectUSB();
-
-                        //for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
-                        foreach (ListViewItem item in listViewLocal.SelectedItems)
-                        {
-                            if (item.ImageIndex == 0) continue;
-
-                            string fileName = localDir + @"\" + item.Text; //openFileDialog1.FileNames[i];
-                            string safeFileName = item.Text; //openFileDialog1.SafeFileNames[i];
-
-                            //{
-                            FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-
-                            byte[] tBuffer = new byte[512];
-                            int curSize = 0;
-
-                            // send write command
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            tBuffer[0] = Convert.ToByte('U');
-                            tBuffer[1] = Convert.ToByte('S');
-                            tBuffer[2] = Convert.ToByte('B');
-                            tBuffer[3] = Convert.ToByte('A');
-                            tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT); // opcode
-                            tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                            tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                            long fileSize = new FileInfo(fileName).Length;
-                            tBuffer[252] = Convert.ToByte((fileSize >> 24) & 0xFF);
-                            tBuffer[253] = Convert.ToByte((fileSize >> 16) & 0xFF);
-                            tBuffer[254] = Convert.ToByte((fileSize >> 8) & 0xFF);
-                            tBuffer[255] = Convert.ToByte((fileSize >> 0) & 0xFF);
-
-                            // leave a trailing 0 to terminate the string if it is too long
-                            Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(remoteDir + "/" + safeFileName), 0, tBuffer, 256, Math.Min(255, ASCIIEncoding.ASCII.GetBytes(remoteDir + "/" + safeFileName).Length));
-
-                            serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                            // read info
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            curSize = 0;
-                            while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                            // write data
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            curSize = 0;
-                            toolStripProgressBar1.Value = 0;
-                            toolStripProgressBar1.Enabled = true;
-                            toolStripStatusLabel1.Text = "uploading: " + safeFileName;
-                            while (curSize < fs.Length)
-                            {
-                                int bytesToWrite = fs.Read(tBuffer, 0, 512);
-                                serialPort1.Write(tBuffer, 0, bytesToWrite);
-                                curSize += bytesToWrite;
-                                toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
-                            }
-                            toolStripStatusLabel1.Text = "idle";
-                            toolStripProgressBar1.Enabled = false;
-
-                            fs.Close();
-                        }
-
-                        //System.Threading.Thread.Sleep(100);
-
-                        serialPort1.Close();
-
-                        RefreshListViewRemote();
-                    }
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
-            }
-        }
-
-        private void buttonDownload_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    ConnectUSB();
-
-                    foreach (ListViewItem item in listViewRemote.SelectedItems)
-                    {
-                        if (item.ImageIndex == 1)
-                        {
-                            string name = remoteDir + '/' + item.Text;
-                            if (name.Length < 256)
-                            {
-                                //saveFileDialog1.Title = "ROM file to Save";
-                                //saveFileDialog1.Filter = "All Files|*.*|ROM File|*.sfc;*.smc";
-                                //saveFileDialog1.FileName = item.Text;
-                                //if (saveFileDialog1.ShowDialog() != DialogResult.Cancel)
-                                //{
-                                FileStream fs = new FileStream(localDir + @"\" + item.Text, FileMode.Create, FileAccess.Write);
-                                //BinaryWriter bs = new BinaryWriter(fs);
-
-                                byte[] tBuffer = new byte[512];
-                                int curSize = 0;
-
-                                // send read command
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                tBuffer[0] = Convert.ToByte('U');
-                                tBuffer[1] = Convert.ToByte('S');
-                                tBuffer[2] = Convert.ToByte('B');
-                                tBuffer[3] = Convert.ToByte('A');
-                                tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET); // opcode
-                                tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                                tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                                // directory
-                                Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(name.ToArray()), 0, tBuffer, 256, name.Length);
-
-                                serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                                // read response
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                curSize = 0;
-                                while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-                                int fileSize = 0;
-                                fileSize |= tBuffer[252]; fileSize <<= 8;
-                                fileSize |= tBuffer[253]; fileSize <<= 8;
-                                fileSize |= tBuffer[254]; fileSize <<= 8;
-                                fileSize |= tBuffer[255]; fileSize <<= 0;
-
-                                // read data
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                curSize = 0;
-                                toolStripProgressBar1.Value = 0;
-                                toolStripProgressBar1.Enabled = true;
-                                toolStripStatusLabel1.Text = "downloading: " + name;
-                                while (curSize < fileSize)
-                                {
-                                    int prevSize = curSize;
-                                    curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-                                    fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
-                                    toolStripProgressBar1.Value = 100 * curSize / fileSize;
-                                }
-                                toolStripStatusLabel1.Text = "idle";
-                                toolStripProgressBar1.Enabled = false;
-
-                                fs.Close();
-                                //}
-                            }
-                        }
-                    }
-
-                    //System.Threading.Thread.Sleep(100);
-
-                    serialPort1.Close();
-
-                    RefreshListViewRemote();
-                    RefreshListViewLocal();
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
-            }
-        }
-
-        private void buttonBoot_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    ConnectUSB();
-
-                    foreach (ListViewItem item in listViewRemote.SelectedItems)
-                    {
-                        var ext = Path.GetExtension(item.Text);
-                        if (item.ImageIndex == 1 && (ext.ToLower().Contains("sfc") | ext.ToLower().Contains("smc") | ext.ToLower().Contains("fig")))
-                        {
-                            string name = remoteDir + '/' + item.Text;
-                            if (name.Length < 256)
-                            {
-
-                                byte[] tBuffer = new byte[512];
-
-                                // send boot command
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                tBuffer[0] = Convert.ToByte('U');
-                                tBuffer[1] = Convert.ToByte('S');
-                                tBuffer[2] = Convert.ToByte('B');
-                                tBuffer[3] = Convert.ToByte('A'); // directory listing
-                                tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_BOOT); // opcode
-                                tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                                tBuffer[6] = Convert.ToByte(bootFlags); // flags
-
-                                // directory
-                                Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(name.ToArray()), 0, tBuffer, 256, name.Length);
-
-                                serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                                //System.Threading.Thread.Sleep(100); // for read?
-
-                                // read response
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                int curSize = 0;
-                                while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                                break; // only boot the first file
-                            }
-                        }
-                    }
-
-                    //System.Threading.Thread.Sleep(100); // for close
-
-                    serialPort1.Close();
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
-            }
-        }
-
-        //private void PopulateTreeViewLocal()
-        //{
-        //    TreeNode rootNode;
-
-        //    DirectoryInfo info = new DirectoryInfo(@"C:\Users\orion\Downloads\goodroms");
-
-        //    if (info.Exists)
-        //    {
-        //        rootNode = new TreeNode(info.Name);
-        //        rootNode.Tag = info;
-        //        GetDirectories(info.GetDirectories(), rootNode);
-        //        treeViewLocal.Nodes.Add(rootNode);
-        //    }
-        //}
 
         private void GetDirectories(DirectoryInfo[] subDirs, TreeNode root)
         {
@@ -409,130 +45,42 @@ namespace WindowsFormsApplication1
             }
         }
 
-        //private void treeViewLocal_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
-        //{
-        //    TreeNode selectedNode = e.Node;
-        //    listViewLocal.Clear();
-        //    DirectoryInfo nodeDirInfo = (DirectoryInfo)selectedNode.Tag;
-
-        //    foreach (DirectoryInfo dir in nodeDirInfo.GetDirectories())
-        //    {
-        //        ListViewItem item = new ListViewItem(dir.Name, 0);
-        //        ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[] { new ListViewItem.ListViewSubItem(item, "Directory"), new ListViewItem.ListViewSubItem(item, dir.LastAccessTime.ToShortDateString()) };
-        //        item.SubItems.AddRange(subItems);
-        //        listViewLocal.Items.Add(item);
-        //    }
-
-        //    foreach (FileInfo file in nodeDirInfo.GetFiles())
-        //    {
-        //        ListViewItem item = new ListViewItem(file.Name, 1);
-        //        ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[] { new ListViewItem.ListViewSubItem(item, "File"), new ListViewItem.ListViewSubItem(item, file.LastAccessTime.ToShortDateString()) };
-        //        item.SubItems.AddRange(subItems);
-        //        listViewLocal.Items.Add(item);
-        //    }
-
-        //    //listViewLocal.AutoResizeColumns(ColumnHeaderAutoResizeStyle.HeaderSize);
-        //}
-
         private void RefreshListViewRemote()
         {
             connected = false;
 
-            // connect to the snes
-            try
+            if (comboBoxPort.SelectedIndex == -1)
             {
-                if (!serialPort1.IsOpen)
+                buttonRefresh.PerformClick();
+            }
+            else
+            {
+                try
                 {
-                    ConnectUSB();
-
                     listViewRemote.Clear();
 
-                    int curSize = 0;
-                    byte[] tBuffer = new byte[512];
+                    core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+                    var list = (List<Tuple<int, string>>)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_LS, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, remoteDir);
+                    core.Disconnect();
 
-                    // send directory command
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    tBuffer[0] = Convert.ToByte('U');
-                    tBuffer[1] = Convert.ToByte('S');
-                    tBuffer[2] = Convert.ToByte('B');
-                    tBuffer[3] = Convert.ToByte('A'); // directory listing
-                    tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_LS); // opcode
-                    tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                    tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                    // leave a trailing 0 to terminate the string if it is too long
-                    Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(remoteDir.ToArray()), 0, tBuffer, 256, Math.Min(255, remoteDir.Length));
-
-                    serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                    // read command
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    curSize = 0;
-                    while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                    // read data
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    curSize = 0;
-                    int type = 0x0;
-                    string name;
-
-                    // read directory listing packets
-                    do
+                    foreach (var entry in list)
                     {
-                        int bytesRead = serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                        if (bytesRead != 0)
-                        {
-                            curSize += bytesRead;
-
-                            if (curSize % 512 == 0)
-                            {
-                                // parse strings
-                                for (int i = 0; i < 512;)
-                                {
-                                    type = tBuffer[i++];
-
-                                    if (type == 0 || type == 1)
-                                    {
-                                        name = "";
-
-                                        while (tBuffer[i] != 0x0)
-                                        {
-                                            name += (char)tBuffer[i++];
-                                        }
-                                        i++;
-
-                                        ListViewItem item = new ListViewItem(name, type);
-                                        ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[] { new ListViewItem.ListViewSubItem(item, type == 0 ? "Directory" : "File"), new ListViewItem.ListViewSubItem(item, "") };
-                                        item.SubItems.AddRange(subItems);
-                                        listViewRemote.Items.Add(item);
-                                    }
-                                    else if (type == 2 || type == 0xFF)
-                                    {
-                                        // continued on the next packet
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        throw new IndexOutOfRangeException();
-                                    }
-                                }
-                            }
-                        }
-                    } while (type != 0xFF);
-
-                    serialPort1.Close();
+                        ListViewItem item = new ListViewItem(entry.Item2, entry.Item1);
+                        ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[] { new ListViewItem.ListViewSubItem(item, entry.Item1 == 0 ? "Directory" : "File"), new ListViewItem.ListViewSubItem(item, "") };
+                        item.SubItems.AddRange(subItems);
+                        listViewRemote.Items.Add(item);
+                    }
 
                     connected = true;
                     EnableButtons(true);
                 }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
+                catch (Exception x)
+                {
+                    toolStripStatusLabel1.Text = x.Message.ToString();
+                    core.Disconnect();
+                    connected = false;
+                    EnableButtons(false);
+                }
             }
         }
 
@@ -564,10 +112,10 @@ namespace WindowsFormsApplication1
 
         private void ConnectUSB()
         {
-            if ((Item)comboBoxPort.SelectedItem == null) buttonRefresh.PerformClick();
-            Item item = (Item)comboBoxPort.SelectedItem;
+            if ((core.Port)comboBoxPort.SelectedItem == null) buttonRefresh.PerformClick();
+            var port = (core.Port)comboBoxPort.SelectedItem;
 
-            serialPort1.PortName = item.PortName;
+            serialPort1.PortName = port.Name;
             serialPort1.BaudRate = 9600;
             serialPort1.Parity = Parity.None;
             serialPort1.DataBits = 8;
@@ -581,31 +129,6 @@ namespace WindowsFormsApplication1
             serialPort1.WriteTimeout = 10000;
 
             serialPort1.Open();
-        }
-
-        private void listViewRemote_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            //if (e.Button == MouseButtons.Left)
-            //{
-            //    foreach (ListViewItem item in listViewRemote.SelectedItems)
-            //    {
-            //        if (item.ImageIndex == 0 && item.Text != ".")
-            //        {
-            //            if (item.Text == "..")
-            //            {
-            //                String[] elements = remoteDir.Split('/');
-            //                elements = elements.Take(elements.Count() - 1).ToArray();
-            //                remoteDir = String.Join("/", elements);
-            //            }
-            //            else
-            //            {
-            //                // directory
-            //                remoteDir += '/' + item.Text;
-            //            }
-            //            RefreshListViewRemote();
-            //        }
-            //    }
-            //}
         }
 
         private class Sorter : System.Collections.IComparer
@@ -634,45 +157,6 @@ namespace WindowsFormsApplication1
                 }
             }
         }
-
-        //private void listViewRemote_MouseDown(object sender, MouseEventArgs e)
-        //{
-
-        //    bootToolStripMenuItem.Enabled = false;
-        //    makeDirToolStripMenuItem.Enabled = false;
-        //    uploadToolStripMenuItem.Enabled = false;
-        //    downloadToolStripMenuItem.Enabled = false;
-        //    deleteToolStripMenuItem.Enabled = false;
-        //    renameToolStripMenuItem.Enabled = false;
-
-        //    if (connected)
-        //    {
-        //        var info = listViewRemote.HitTest(e.X, e.Y);
-
-        //        uploadToolStripMenuItem.Enabled = true;
-        //        makeDirToolStripMenuItem.Enabled = true;
-
-        //        if (e.Button == MouseButtons.Right)
-        //        {
-        //            var loc = e.Location;
-        //            loc.Offset(listViewRemote.Location);
-
-        //            if (info.Item != null)
-        //            {
-        //                deleteToolStripMenuItem.Enabled = true;
-        //                renameToolStripMenuItem.Enabled = true;
-
-        //                if (info.Item.ImageIndex == 1)
-        //                {
-        //                    downloadToolStripMenuItem.Enabled = true;
-        //                    bootToolStripMenuItem.Enabled = true;
-        //                }
-        //            }
-
-        //            this.contextMenuStripRemote.Show(this, loc);
-        //        }
-        //    }
-        //}
 
         private void listViewRemote_MouseDoubleClick(object sender, MouseEventArgs e)
         {
@@ -723,6 +207,226 @@ namespace WindowsFormsApplication1
             buttonRefresh.PerformClick();
         }
 
+
+        /// <summary>
+        /// buttonRefresh finds all sd2snes COM ports and attempts to connect to one of them.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonRefresh_Click(object sender, EventArgs e)
+        {
+            comboBoxPort.Items.Clear();
+            comboBoxPort.ResetText();
+            comboBoxPort.SelectedIndex = -1;
+
+            connected = false;
+            EnableButtons(false);
+
+            try
+            {
+                var deviceList = Win32DeviceMgmt.GetAllCOMPorts();
+                foreach (var port in core.GetDeviceList())
+                {
+                    comboBoxPort.Items.Add(port);
+                }
+
+                if (comboBoxPort.Items.Count != 0) comboBoxPort.SelectedIndex = 0;
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        private void comboBoxPort_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            EnableButtons(false);
+            connected = false;
+
+            if (comboBoxPort.SelectedIndex >= 0)
+            {
+                var port = (core.Port)comboBoxPort.SelectedItem;
+
+                if (port.Desc.Contains("sd2snes"))
+                {
+                    remoteDirPrev = "";
+                    remoteDir = "";
+                    remoteDirNext = "";
+                    RefreshListViewRemote();
+                }
+            }
+        }
+
+        /// <summary>
+        /// buttonUpload sends a file to the snes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonUpload_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    if (listViewLocal.SelectedItems.Count > 0)
+                    {
+                        core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                        foreach (ListViewItem item in listViewLocal.SelectedItems)
+                        {
+                            if (item.ImageIndex == 0) continue;
+
+                            string fileName = localDir + @"\" + item.Text;
+                            string safeFileName = item.Text;
+
+                            FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+
+                            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, remoteDir + "/" + safeFileName, (uint)fs.Length);
+
+                            // write data
+                            byte[] tBuffer = new byte[512];
+                            Array.Clear(tBuffer, 0, tBuffer.Length);
+                            int curSize = 0;
+                            toolStripProgressBar1.Value = 0;
+                            toolStripProgressBar1.Enabled = true;
+                            toolStripStatusLabel1.Text = "uploading: " + safeFileName;
+                            while (curSize < fs.Length)
+                            {
+                                int bytesToWrite = fs.Read(tBuffer, 0, 512);
+                                core.SendData(tBuffer, bytesToWrite);
+                                curSize += bytesToWrite;
+                                toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
+                            }
+                            toolStripStatusLabel1.Text = "idle";
+                            toolStripProgressBar1.Enabled = false;
+
+                            fs.Close();
+                        }
+
+                        core.Disconnect();
+
+                        RefreshListViewRemote();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        /// <summary>
+        /// buttonDownload gets a file from the snes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonDownload_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                    foreach (ListViewItem item in listViewRemote.SelectedItems)
+                    {
+                        if (item.ImageIndex == 1)
+                        {
+                            string name = remoteDir + '/' + item.Text;
+                            if (name.Length < 256)
+                            {
+                                FileStream fs = new FileStream(localDir + @"\" + item.Text, FileMode.Create, FileAccess.Write);
+
+                                int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, name);
+
+                                // read data
+                                byte[] tBuffer = new byte[512];
+                                int curSize = 0;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                toolStripProgressBar1.Value = 0;
+                                toolStripProgressBar1.Enabled = true;
+                                toolStripStatusLabel1.Text = "downloading: " + name;
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    //curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                                    curSize += core.GetData(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                                    fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
+                                    toolStripProgressBar1.Value = 100 * curSize / fileSize;
+                                }
+                                toolStripStatusLabel1.Text = "idle";
+                                toolStripProgressBar1.Enabled = false;
+
+                                fs.Close();
+                            }
+                        }
+                    }
+
+                    core.Disconnect();
+
+                    RefreshListViewRemote();
+                    RefreshListViewLocal();
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        /// <summary>
+        /// buttonBoot executes a rom on the snes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonBoot_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                    foreach (ListViewItem item in listViewRemote.SelectedItems)
+                    {
+                        var ext = Path.GetExtension(item.Text);
+                        if (item.ImageIndex == 1 && (ext.ToLower().Contains("sfc") | ext.ToLower().Contains("smc") | ext.ToLower().Contains("fig")))
+                        {
+                            string name = remoteDir + '/' + item.Text;
+                            if (name.Length < 256)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_BOOT, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, (core.usbint_server_flags_e)bootFlags, name);
+                                break; // only boot the first file
+                            }
+                        }
+                    }
+
+                    core.Disconnect();
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        /// <summary>
+        /// buttonMkdir creates a directory on the sd2snes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonMkdir_Click(object sender, EventArgs e)
         {
             try
@@ -735,31 +439,9 @@ namespace WindowsFormsApplication1
                         string name = remoteDir + '/' + dirName;
                         if (name.Length < 256)
                         {
-                            ConnectUSB();
-
-                            byte[] tBuffer = new byte[512];
-
-                            // send boot command
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            tBuffer[0] = Convert.ToByte('U');
-                            tBuffer[1] = Convert.ToByte('S');
-                            tBuffer[2] = Convert.ToByte('B');
-                            tBuffer[3] = Convert.ToByte('A');
-                            tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_MKDIR); // opcode
-                            tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                            tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                            // directory
-                            Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(name.ToArray()), 0, tBuffer, 256, name.Length);
-
-                            serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                            // read response
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            int curSize = 0;
-                            while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                            serialPort1.Close();
+                            core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+                            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_MKDIR, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, name);
+                            core.Disconnect();
 
                             RefreshListViewRemote();
                         }
@@ -769,12 +451,17 @@ namespace WindowsFormsApplication1
             catch (Exception x)
             {
                 toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
+                core.Disconnect();
                 connected = false;
                 EnableButtons(false);
             }
         }
 
+        /// <summary>
+        /// buttonRename moves a file/directory on the sd2snes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonRename_Click(object sender, EventArgs e)
         {
             try
@@ -788,34 +475,9 @@ namespace WindowsFormsApplication1
 
                         if (newName != "" && name.Length < 256 && newName.Length < 256 - 8)
                         {
-                            ConnectUSB();
-
-                            byte[] tBuffer = new byte[512];
-
-                            // send boot command
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            tBuffer[0] = Convert.ToByte('U');
-                            tBuffer[1] = Convert.ToByte('S');
-                            tBuffer[2] = Convert.ToByte('B');
-                            tBuffer[3] = Convert.ToByte('A');
-                            tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_MV); // opcode
-                            tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                            tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                            // directory
-                            Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(name.ToArray()), 0, tBuffer, 256, name.Length);
-
-                            // new name
-                            Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(newName.ToArray()), 0, tBuffer, 8, newName.Length);
-
-                            serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                            // read response
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            int curSize = 0;
-                            while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                            serialPort1.Close();
+                            core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+                            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_MV, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, name, newName);
+                            core.Disconnect();
                         }
                     }
 
@@ -825,12 +487,17 @@ namespace WindowsFormsApplication1
             catch (Exception x)
             {
                 toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
+                core.Disconnect();
                 connected = false;
                 EnableButtons(false);
             }
         }
 
+        /// <summary>
+        /// buttonDelete removes a file from tne sd2snes
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void buttonDelete_Click(object sender, EventArgs e)
         {
             try
@@ -843,38 +510,18 @@ namespace WindowsFormsApplication1
 
                         if (res == DialogResult.Yes)
                         {
+                            core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
                             foreach (ListViewItem item in listViewRemote.SelectedItems)
                             {
                                 string name = remoteDir + '/' + item.Text;
                                 if (name.Length < 256)
                                 {
-                                    ConnectUSB();
-
-                                    byte[] tBuffer = new byte[512];
-
-                                    // send boot command
-                                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                                    tBuffer[0] = Convert.ToByte('U');
-                                    tBuffer[1] = Convert.ToByte('S');
-                                    tBuffer[2] = Convert.ToByte('B');
-                                    tBuffer[3] = Convert.ToByte('A');
-                                    tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_RM); // opcode
-                                    tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_FILE); // space
-                                    tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                                    // directory
-                                    Buffer.BlockCopy(ASCIIEncoding.ASCII.GetBytes(name.ToArray()), 0, tBuffer, 256, name.Length);
-
-                                    serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                                    // read response
-                                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                                    int curSize = 0;
-                                    while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                                    serialPort1.Close();
+                                    core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_RM, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, name);
                                 }
                             }
+
+                            core.Disconnect();
 
                             RefreshListViewRemote();
                         }
@@ -884,11 +531,276 @@ namespace WindowsFormsApplication1
             catch (Exception x)
             {
                 toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
+                core.Disconnect();
                 connected = false;
                 EnableButtons(false);
             }
 
+        }
+
+        /// <summary>
+        /// buttonPatch sends a patch update file to the sd2snes RAM
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonPatch_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    openFileDialog1.Title = "RAM IPS file to load";
+                    openFileDialog1.Filter = "IPS File|*.ips"
+                                           + "|All Files|*.*";
+                    openFileDialog1.FileName = "";
+
+                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                        {
+                            string fileName = openFileDialog1.FileNames[i];
+                            string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                            applyPatch(fileName, safeFileName);
+                        }
+
+                        core.Disconnect();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        /// <summary>
+        /// buttonGetState receives the $F00000 save state region
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonGetState_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    saveFileDialog1.Title = "State file to Save";
+                    saveFileDialog1.Filter = "STATE File|*.ss0"
+                                           + "|All Files|*.*";
+                    saveFileDialog1.FileName = "save.ss0";
+
+                    if (saveFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        FileStream fs = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write);
+
+                        core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+                        int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF00000, (uint)0x60000);
+
+                        // read data
+                        byte[] tBuffer = new byte[512];
+                        int curSize = 0;
+                        Array.Clear(tBuffer, 0, tBuffer.Length);
+                        toolStripProgressBar1.Value = 0;
+                        toolStripProgressBar1.Enabled = true;
+                        toolStripStatusLabel1.Text = "downloading: " + saveFileDialog1.FileName;
+                        while (curSize < fileSize)
+                        {
+                            int prevSize = curSize;
+                            //curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                            curSize += core.GetData(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                            fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
+                            toolStripProgressBar1.Value = 100 * curSize / fileSize;
+                        }
+                        toolStripStatusLabel1.Text = "idle";
+                        toolStripProgressBar1.Enabled = false;
+
+                        fs.Close();
+
+                        core.Disconnect();
+
+                        RefreshListViewRemote();
+                        RefreshListViewLocal();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        /// <summary>
+        /// buttonSetState sends the $F00000 save state region
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonSetState_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    openFileDialog1.Title = "State file to Load";
+                    openFileDialog1.Filter = "STATE File|*.ss0"
+                                           + "|All Files|*.*";
+                    openFileDialog1.FileName = "save.ss0";
+
+                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                        {
+                            string fileName = openFileDialog1.FileNames[i];
+                            string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                            FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+                            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF00000, (uint)fs.Length);
+
+                            // write data
+                            byte[] tBuffer = new byte[512];
+                            int curSize = 0;
+                            Array.Clear(tBuffer, 0, tBuffer.Length);
+                            toolStripProgressBar1.Value = 0;
+                            toolStripProgressBar1.Enabled = true;
+                            toolStripStatusLabel1.Text = "uploading: " + safeFileName;
+                            while (curSize < fs.Length)
+                            {
+                                int bytesToWrite = fs.Read(tBuffer, 0, 512);
+                                core.SendData(tBuffer, bytesToWrite);
+                                //serialPort1.Write(tBuffer, 0, bytesToWrite);
+                                curSize += bytesToWrite;
+                                toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
+                            }
+                            toolStripStatusLabel1.Text = "idle";
+                            toolStripProgressBar1.Enabled = false;
+
+                            fs.Close();
+                        }
+
+                        core.Disconnect();
+
+                        RefreshListViewRemote();
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+
+        }
+
+        /// <summary>
+        /// buttonTest tests some new feature
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void buttonTest_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    openFileDialog1.Title = "RAM IPS file to load";
+                    openFileDialog1.Filter = "IPS File|*.ips"
+                                           + "|All Files|*.*";
+                    openFileDialog1.FileName = "";
+
+                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    {
+                        // boot currently selected ROM
+                        bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_SKIPRESET);
+                        buttonBoot.PerformClick();
+                        bootFlags = 0;
+
+                        // apply the selected patch
+                        core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                        {
+                            string fileName = openFileDialog1.FileNames[i];
+                            string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                            applyPatch(fileName, safeFileName);
+                        }
+
+                        core.Disconnect();
+
+                        // perform reset
+                        bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_ONLYRESET);
+                        buttonBoot.PerformClick();
+                        bootFlags = 0;
+                    }
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        private void applyPatch(string fileName, string safeFileName)
+        {
+            for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+            {
+                IPS ips = new IPS();
+                ips.Parse(fileName);
+
+                byte[] tBuffer = new byte[512];
+                int curSize = 0;
+
+                // send write command
+                int patchNum = 0;
+                foreach (var patch in ips.Items)
+                {
+                    core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES
+                                    , (patchNum == 0 && i == 0) ? core.usbint_server_flags_e.USBINT_SERVER_FLAGS_CLRX
+                                      : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? core.usbint_server_flags_e.USBINT_SERVER_FLAGS_SETX
+                                      : core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE
+                                    , (uint)patch.address
+                                    , (uint)patch.data.Count
+                                    );
+
+                    // write data
+                    Array.Clear(tBuffer, 0, tBuffer.Length);
+                    curSize = 0;
+                    toolStripProgressBar1.Value = 0;
+                    toolStripProgressBar1.Enabled = true;
+                    toolStripStatusLabel1.Text = "uploading ram: " + safeFileName;
+
+                    while (curSize < patch.data.Count)
+                    {
+                        int bytesToWrite = Math.Min(512, patch.data.Count - curSize);
+                        Array.Clear(tBuffer, 0, tBuffer.Length);
+                        Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
+
+                        core.SendData(tBuffer, bytesToWrite);
+
+                        curSize += bytesToWrite;
+                        toolStripProgressBar1.Value = 100 * curSize / patch.data.Count;
+                    }
+                    toolStripStatusLabel1.Text = "idle";
+                    toolStripProgressBar1.Enabled = false;
+
+                    patchNum++;
+                }
+            }
         }
 
         private void makeDirToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1145,50 +1057,6 @@ namespace WindowsFormsApplication1
             RefreshListViewLocal();
         }
 
-        private void buttonPatch_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    openFileDialog1.Title = "RAM IPS file to load";
-                    openFileDialog1.Filter = "IPS File|*.ips"
-                                           + "|All Files|*.*";
-                    openFileDialog1.FileName = "";
-
-                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
-                    {
-                        //if (listViewLocal.SelectedItems.Count > 0)
-                        //{
-
-                        ConnectUSB();
-
-                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
-                        //foreach (ListViewItem item in listViewLocal.SelectedItems)
-                        {
-                            string fileName = openFileDialog1.FileNames[i];
-                            string safeFileName = openFileDialog1.SafeFileNames[i];
-
-                            applyPatch(fileName, safeFileName);
-
-                            //System.Threading.Thread.Sleep(100);
-                        }
-
-                        serialPort1.Close();
-
-                        //RefreshListViewRemote();
-                    }
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
-            }
-        }
-
         private class IPS
         {
             public IPS() { Items = new List<Patch>(); }
@@ -1294,330 +1162,6 @@ namespace WindowsFormsApplication1
                     throw new Exception("IPS: unexpected end of file");
 
                 fs.Close();
-            }
-        }
-
-        private void applyPatch(string fileName, string safeFileName)
-        {
-            for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
-            {
-                IPS ips = new IPS();
-                ips.Parse(fileName);
-
-                //{
-                //FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-
-                byte[] tBuffer = new byte[512];
-                int curSize = 0;
-
-                // send write command
-                int patchNum = 0;
-                foreach (var patch in ips.Items)
-                {
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    tBuffer[0] = Convert.ToByte('U');
-                    tBuffer[1] = Convert.ToByte('S');
-                    tBuffer[2] = Convert.ToByte('B');
-                    tBuffer[3] = Convert.ToByte('A');
-                    tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT); // opcode
-                    tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_SNES); // space
-                    tBuffer[6] = Convert.ToByte((patchNum == 0 && i == 0) ? usbint_server_flags_e.USBINT_SERVER_FLAGS_CLRX
-                                               : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? usbint_server_flags_e.USBINT_SERVER_FLAGS_SETX
-                                               : usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE);
-
-                    long fileSize = patch.data.Count;
-                    tBuffer[252] = Convert.ToByte((fileSize >> 24) & 0xFF);
-                    tBuffer[253] = Convert.ToByte((fileSize >> 16) & 0xFF);
-                    tBuffer[254] = Convert.ToByte((fileSize >> 8) & 0xFF);
-                    tBuffer[255] = Convert.ToByte((fileSize >> 0) & 0xFF);
-
-                    // temp offset
-                    //tBuffer[256] = 0x00;
-                    //tBuffer[257] = 0x20;
-                    //tBuffer[258] = 0x00;
-                    //tBuffer[259] = 0x00;
-                    tBuffer[256] = Convert.ToByte((patch.address >> 24) & 0xFF);
-                    tBuffer[257] = Convert.ToByte((patch.address >> 16) & 0xFF);
-                    tBuffer[258] = Convert.ToByte((patch.address >> 8) & 0xFF);
-                    tBuffer[259] = Convert.ToByte((patch.address >> 0) & 0xFF);
-
-                    //System.Threading.Thread.Sleep(100);
-                    //System.Threading.Thread.Sleep(30);
-                    serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                    // read info
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    curSize = 0;
-                    //System.Threading.Thread.Sleep(100);
-                    //System.Threading.Thread.Sleep(30);
-                    while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                    // write data
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    curSize = 0;
-                    toolStripProgressBar1.Value = 0;
-                    toolStripProgressBar1.Enabled = true;
-                    toolStripStatusLabel1.Text = "uploading ram: " + safeFileName;
-
-                    //System.Threading.Thread.Sleep(100);
-                    //System.Threading.Thread.Sleep(30);
-                    while (curSize < patch.data.Count)
-                    {
-                        int bytesToWrite = Math.Min(512, patch.data.Count - curSize);
-                        Array.Clear(tBuffer, 0, tBuffer.Length);
-                        Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
-                        serialPort1.Write(tBuffer, 0, tBuffer.Length);
-                        curSize += bytesToWrite;
-                        toolStripProgressBar1.Value = 100 * curSize / patch.data.Count;
-                    }
-                    toolStripStatusLabel1.Text = "idle";
-                    toolStripProgressBar1.Enabled = false;
-
-                    patchNum++;
-                }
-                //fs.Close();
-            }
-        }
-
-        private void buttonGetState_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    ConnectUSB();
-
-                    saveFileDialog1.Title = "State file to Save";
-                    saveFileDialog1.Filter = "STATE File|*.ss0"
-                                           + "|All Files|*.*";
-                    saveFileDialog1.FileName = "save.ss0";
-
-                    if (saveFileDialog1.ShowDialog() != DialogResult.Cancel)
-                    {
-                        FileStream fs = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write);
-                        //BinaryWriter bs = new BinaryWriter(fs);
-
-                        byte[] tBuffer = new byte[512];
-                        int curSize = 0;
-
-                        // send read command
-                        Array.Clear(tBuffer, 0, tBuffer.Length);
-                        tBuffer[0] = Convert.ToByte('U');
-                        tBuffer[1] = Convert.ToByte('S');
-                        tBuffer[2] = Convert.ToByte('B');
-                        tBuffer[3] = Convert.ToByte('A');
-                        tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET); // opcode
-                        tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_SNES); // space
-                        tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                        // size - 256KB
-                        tBuffer[252] = 0x00;
-                        tBuffer[253] = 0x04;
-                        tBuffer[254] = 0x00;
-                        tBuffer[255] = 0x00;
-
-                        // patch region
-                        tBuffer[256] = 0x00;
-                        tBuffer[257] = 0xF0;
-                        tBuffer[258] = 0x00;
-                        tBuffer[259] = 0x00;
-
-                        serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                        // read response
-                        Array.Clear(tBuffer, 0, tBuffer.Length);
-                        curSize = 0;
-                        while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-                        int fileSize = 0;
-                        fileSize |= tBuffer[252]; fileSize <<= 8;
-                        fileSize |= tBuffer[253]; fileSize <<= 8;
-                        fileSize |= tBuffer[254]; fileSize <<= 8;
-                        fileSize |= tBuffer[255]; fileSize <<= 0;
-
-                        // read data
-                        Array.Clear(tBuffer, 0, tBuffer.Length);
-                        curSize = 0;
-                        toolStripProgressBar1.Value = 0;
-                        toolStripProgressBar1.Enabled = true;
-                        toolStripStatusLabel1.Text = "downloading: " + saveFileDialog1.FileName;
-                        while (curSize < fileSize)
-                        {
-                            int prevSize = curSize;
-                            curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-                            fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
-                            toolStripProgressBar1.Value = 100 * curSize / fileSize;
-                        }
-                        toolStripStatusLabel1.Text = "idle";
-                        toolStripProgressBar1.Enabled = false;
-
-                        fs.Close();
-
-                        //System.Threading.Thread.Sleep(100);
-
-                        serialPort1.Close();
-
-                        RefreshListViewRemote();
-                        RefreshListViewLocal();
-                    }
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
-            }
-        }
-
-
-        private void buttonSetState_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    openFileDialog1.Title = "State file to Load";
-                    openFileDialog1.Filter = "STATE File|*.ss0"
-                                           + "|All Files|*.*";
-                    openFileDialog1.FileName = "save.ss0";
-
-                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
-                    {
-                    //if (listViewLocal.SelectedItems.Count > 0)
-                    //{
-                        ConnectUSB();
-
-                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
-                        //foreach (ListViewItem item in listViewLocal.SelectedItems)
-                        {
-                            string fileName = openFileDialog1.FileNames[i];
-                            string safeFileName = openFileDialog1.SafeFileNames[i];
-
-                            //{
-                            FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-
-                            byte[] tBuffer = new byte[512];
-                            int curSize = 0;
-
-                            // send write command
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            tBuffer[0] = Convert.ToByte('U');
-                            tBuffer[1] = Convert.ToByte('S');
-                            tBuffer[2] = Convert.ToByte('B');
-                            tBuffer[3] = Convert.ToByte('A');
-                            tBuffer[4] = Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT); // opcode
-                            tBuffer[5] = Convert.ToByte(usbint_server_space_e.USBINT_SERVER_SPACE_SNES); // space
-                            tBuffer[6] = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE); // flags
-
-                            long fileSize = new FileInfo(fileName).Length;
-                            tBuffer[252] = Convert.ToByte((fileSize >> 24) & 0xFF);
-                            tBuffer[253] = Convert.ToByte((fileSize >> 16) & 0xFF);
-                            tBuffer[254] = Convert.ToByte((fileSize >> 8) & 0xFF);
-                            tBuffer[255] = Convert.ToByte((fileSize >> 0) & 0xFF);
-
-                            // patch region
-                            tBuffer[256] = 0x00;
-                            tBuffer[257] = 0xF0;
-                            tBuffer[258] = 0x00;
-                            tBuffer[259] = 0x00;
-
-                            serialPort1.Write(tBuffer, 0, tBuffer.Length);
-
-                            // read info
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            curSize = 0;
-                            while (curSize < 512) curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-
-                            // write data
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            curSize = 0;
-                            toolStripProgressBar1.Value = 0;
-                            toolStripProgressBar1.Enabled = true;
-                            toolStripStatusLabel1.Text = "uploading: " + safeFileName;
-                            while (curSize < fs.Length)
-                            {
-                                int bytesToWrite = fs.Read(tBuffer, 0, 512);
-                                serialPort1.Write(tBuffer, 0, bytesToWrite);
-                                curSize += bytesToWrite;
-                                toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
-                            }
-                            toolStripStatusLabel1.Text = "idle";
-                            toolStripProgressBar1.Enabled = false;
-
-                            fs.Close();
-                        }
-
-                        //System.Threading.Thread.Sleep(100);
-
-                        serialPort1.Close();
-
-                        RefreshListViewRemote();
-                    }
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
-            }
-
-        }
-
-        private void buttonTest_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (connected)
-                {
-                    openFileDialog1.Title = "RAM IPS file to load";
-                    openFileDialog1.Filter = "IPS File|*.ips"
-                                           + "|All Files|*.*";
-                    openFileDialog1.FileName = "";
-
-                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
-                    {
-                        // boot currently selected ROM
-                        bootFlags = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_SKIPRESET);
-                        buttonBoot.PerformClick();
-                        bootFlags = 0;
-
-                        //System.Threading.Thread.Sleep(2000);
-                        //System.Threading.Thread.Sleep(2000);
-
-                        // apply the selected patch
-                        ConnectUSB();
-
-                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
-                        //foreach (ListViewItem item in listViewLocal.SelectedItems)
-                        {
-                            string fileName = openFileDialog1.FileNames[i];
-                            string safeFileName = openFileDialog1.SafeFileNames[i];
-
-                            applyPatch(fileName, safeFileName);
-                        }
-
-                        serialPort1.Close();
-
-                        //System.Threading.Thread.Sleep(100);
-
-                        // perform reset
-                        bootFlags = Convert.ToByte(usbint_server_flags_e.USBINT_SERVER_FLAGS_ONLYRESET);
-                        buttonBoot.PerformClick();
-                        bootFlags = 0;
-
-                        //RefreshListViewRemote();
-                    }
-                }
-            }
-            catch (Exception x)
-            {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                try { serialPort1.Close(); } catch (Exception x1) { }
-                connected = false;
-                EnableButtons(false);
             }
         }
     }
