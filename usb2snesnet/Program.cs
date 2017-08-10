@@ -16,16 +16,7 @@ namespace WindowsFormsApplication1
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new usb2snes());
+            Application.Run(new usb2snesnet());
         }
-
-        internal static DialogResult ShowError(string text)
-        {
-            DialogResult result = MessageBox.Show(text, System.AppDomain.CurrentDomain.FriendlyName,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-            return result;
-        }
-
     }
 }

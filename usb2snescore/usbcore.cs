@@ -106,6 +106,7 @@ namespace usb2snes.core
 
         public static void Connect(string portName)
         {
+            if (serialPort.IsOpen) Disconnect();
             serialPort.PortName = portName;
             serialPort.BaudRate = 916200;
             serialPort.Parity = Parity.None;
@@ -117,12 +118,13 @@ namespace usb2snes.core
             serialPort.ReadTimeout = 5000;
             serialPort.WriteTimeout = 5000;
 
+            serialPort.DtrEnable = true;
             serialPort.Open();
         }
 
         public static void Disconnect()
         {
-            try { serialPort.Close(); } catch (Exception x) { }
+            try { serialPort.DtrEnable = false; serialPort.Close(); } catch (Exception x) { serialPort = new SerialPort(); }
         }
 
         public static object SendCommand(usbint_server_opcode_e opcode, usbint_server_space_e space, usbint_server_flags_e flags, params object[] args)

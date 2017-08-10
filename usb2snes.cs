@@ -21,6 +21,7 @@ namespace WindowsFormsApplication1
 {
     public partial class usb2snes : Form
     {
+
         public usb2snes()
         {
             InitializeComponent();
@@ -107,28 +108,10 @@ namespace WindowsFormsApplication1
             catch (Exception x)
             {
                 toolStripStatusLabel1.Text = x.Message.ToString();
+                // go back to where we were
+                localDir = localDirPrev;
+                RefreshListViewLocal();
             }
-        }
-
-        private void ConnectUSB()
-        {
-            if ((core.Port)comboBoxPort.SelectedItem == null) buttonRefresh.PerformClick();
-            var port = (core.Port)comboBoxPort.SelectedItem;
-
-            serialPort1.PortName = port.Name;
-            serialPort1.BaudRate = 9600;
-            serialPort1.Parity = Parity.None;
-            serialPort1.DataBits = 8;
-            serialPort1.StopBits = StopBits.One;
-            serialPort1.Handshake = Handshake.None;
-
-            //serialPort1.ReadTimeout = 500;
-            //serialPort1.WriteTimeout = 500;
-            // Support long timeout (infinite may lock up app)
-            serialPort1.ReadTimeout = 10000;
-            serialPort1.WriteTimeout = 10000;
-
-            serialPort1.Open();
         }
 
         private class Sorter : System.Collections.IComparer
@@ -255,6 +238,7 @@ namespace WindowsFormsApplication1
                     remoteDirPrev = "";
                     remoteDir = "";
                     remoteDirNext = "";
+                    toolStripStatusLabel1.Text = "idle";
                     RefreshListViewRemote();
                 }
             }

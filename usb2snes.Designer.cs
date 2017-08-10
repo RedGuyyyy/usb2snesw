@@ -45,7 +45,6 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(usb2snes));
-            this.serialPort1 = new System.IO.Ports.SerialPort(this.components);
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
@@ -467,7 +466,6 @@
 
         private System.Windows.Forms.Button buttonUpload;
         private System.Windows.Forms.Button buttonDownload;
-        private System.IO.Ports.SerialPort serialPort1;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
         private System.Windows.Forms.ToolStripProgressBar toolStripProgressBar1;
