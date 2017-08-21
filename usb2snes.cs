@@ -233,14 +233,11 @@ namespace WindowsFormsApplication1
             {
                 var port = (core.Port)comboBoxPort.SelectedItem;
 
-                if (port.Desc.Contains("sd2snes"))
-                {
-                    remoteDirPrev = "";
-                    remoteDir = "";
-                    remoteDirNext = "";
-                    toolStripStatusLabel1.Text = "idle";
-                    RefreshListViewRemote();
-                }
+                remoteDirPrev = "";
+                remoteDir = "";
+                remoteDirNext = "";
+                toolStripStatusLabel1.Text = "idle";
+                RefreshListViewRemote();
             }
         }
 
@@ -584,7 +581,7 @@ namespace WindowsFormsApplication1
                         FileStream fs = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write);
 
                         core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
-                        int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF00000, (uint)0x60000);
+                        int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF00000, (uint)0x50000);
 
                         // read data
                         byte[] tBuffer = new byte[512];

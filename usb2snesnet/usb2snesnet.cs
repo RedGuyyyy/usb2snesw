@@ -533,16 +533,13 @@ namespace WindowsFormsApplication1
                 {
                     var port = (core.Port)comboBoxPort.SelectedItem;
 
-                    if (port.Desc.Contains("sd2snes"))
-                    {
-                        core.Disconnect();
-                        core.Connect(port.Name);
-                        pictureConnected.Image = Resources.bullet_green;
-                        pictureConnected.Refresh();
-                        toolStripStatusLabel1.Text = "idle";
-                        Setup();
-                        _timer.Enabled = true;
-                    }
+                    core.Disconnect();
+                    core.Connect(port.Name);
+                    pictureConnected.Image = Resources.bullet_green;
+                    pictureConnected.Refresh();
+                    toolStripStatusLabel1.Text = "idle";
+                    Setup();
+                    _timer.Enabled = true;
                 }
             }
             catch (Exception x)
@@ -696,6 +693,8 @@ namespace WindowsFormsApplication1
             {
                 _provider.WriteByte(i, _memory[i]);
             }
+            this.Invoke(new Action(() => { RefreshMemoryView(); }));
+            
         }
 
         /// <summary>
