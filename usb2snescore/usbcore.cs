@@ -107,16 +107,17 @@ namespace usb2snes.core
         public static void Connect(string portName)
         {
             if (serialPort.IsOpen) Disconnect();
+            serialPort = new SerialPort();
             serialPort.PortName = portName;
-            serialPort.BaudRate = 916200;
+            serialPort.BaudRate = 9600;
             serialPort.Parity = Parity.None;
             serialPort.DataBits = 8;
             serialPort.StopBits = StopBits.One;
             serialPort.Handshake = Handshake.None;
 
             // Support long timeout (infinite may lock up app)
-            serialPort.ReadTimeout = 5000;
-            serialPort.WriteTimeout = 5000;
+            serialPort.ReadTimeout = 3000;
+            serialPort.WriteTimeout = 3000;
 
             serialPort.DtrEnable = true;
             serialPort.Open();

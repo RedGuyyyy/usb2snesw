@@ -7,8 +7,8 @@
     <ProjectGuid>{27BB8549-FDF3-40FA-9438-A1AFE387EA3E}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>usb2snesnet</RootNamespace>
-    <AssemblyName>usb2snesnet</AssemblyName>
+    <RootNamespace>usb2snesviewer</RootNamespace>
+    <AssemblyName>usb2snesviewer</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

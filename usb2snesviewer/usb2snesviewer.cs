@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using usb2snes.core;
 using usb2snes.utils;
-using usb2snesnet.Properties;
+using usb2snesviewer.Properties;
 using Be.Windows.Forms;
 using System.IO;
 using System.Timers;

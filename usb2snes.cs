@@ -720,6 +720,8 @@ namespace WindowsFormsApplication1
 
                         core.Disconnect();
 
+                        System.Threading.Thread.Sleep(500);
+
                         // perform reset
                         bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_ONLYRESET);
                         buttonBoot.PerformClick();

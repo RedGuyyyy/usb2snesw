@@ -79,7 +79,7 @@
             // 
             // pictureConnected
             // 
-            this.pictureConnected.Image = global::usb2snesnet.Properties.Resources.bullet_red;
+            this.pictureConnected.Image = global::usb2snesviewer.Properties.Resources.bullet_red;
             this.pictureConnected.InitialImage = ((System.Drawing.Image)(resources.GetObject("pictureConnected.InitialImage")));
             this.pictureConnected.Location = new System.Drawing.Point(373, 17);
             this.pictureConnected.Name = "pictureConnected";
