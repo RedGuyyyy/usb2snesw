@@ -182,9 +182,13 @@ namespace usb2snes.core
                             break;
                         }
 
+                    // passthrough command
+                    case usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESET:
+                    case usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_RESET:
+                        break;
+
                     //case usbint_server_opcode_e.USBINT_SERVER_OPCODE_EXECUTE:
                     //case usbint_server_opcode_e.USBINT_SERVER_OPCODE_ATOMIC:
-                    //case usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESET:
                     //case usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_LOCK:
                     //case usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_UNLOCK:
                     //case usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_RESET:
@@ -220,6 +224,11 @@ namespace usb2snes.core
 
                             break;
                         }
+
+                    // passthrough command
+                    case usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESET:
+                    case usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_RESET:
+                        break;
 
                     default:
                         throw new Exception("Unhandled Request: " + opcode.ToString() + " space: " + space.ToString() + " flags: " + flags.ToString());

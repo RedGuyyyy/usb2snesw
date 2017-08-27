@@ -31,6 +31,8 @@
             buttonPatch.Enabled = enable;
             buttonGetState.Enabled = enable;
             buttonSetState.Enabled = enable;
+            buttonSoftReset.Enabled = enable;
+            buttonMenu.Enabled = enable;
 
             buttonTest.Enabled = enable;
         }
@@ -62,6 +64,7 @@
             this.deleteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.bootToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.resetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.listViewRemote = new System.Windows.Forms.ListView();
             this.buttonMkdir = new System.Windows.Forms.Button();
             this.buttonDelete = new System.Windows.Forms.Button();
@@ -82,6 +85,9 @@
             this.buttonGetState = new System.Windows.Forms.Button();
             this.buttonSetState = new System.Windows.Forms.Button();
             this.buttonTest = new System.Windows.Forms.Button();
+            this.buttonSoftReset = new System.Windows.Forms.Button();
+            this.buttonMenu = new System.Windows.Forms.Button();
+            this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -145,9 +151,11 @@
             this.renameToolStripMenuItem,
             this.deleteToolStripMenuItem,
             this.toolStripSeparator2,
-            this.bootToolStripMenuItem});
+            this.bootToolStripMenuItem,
+            this.resetToolStripMenuItem,
+            this.menuToolStripMenuItem});
             this.contextMenuStripRemote.Name = "contextMenuStrip1";
-            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 170);
+            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 236);
             this.contextMenuStripRemote.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripRemote_Opening);
             // 
             // refreshToolStripMenuItem
@@ -218,6 +226,14 @@
             this.bootToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
             this.bootToolStripMenuItem.Text = "Boot";
             this.bootToolStripMenuItem.Click += new System.EventHandler(this.bootToolStripMenuItem_Click);
+            // 
+            // resetToolStripMenuItem
+            // 
+            this.resetToolStripMenuItem.Enabled = false;
+            this.resetToolStripMenuItem.Name = "resetToolStripMenuItem";
+            this.resetToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.resetToolStripMenuItem.Text = "Reset";
+            this.resetToolStripMenuItem.Click += new System.EventHandler(this.resetToolStripMenuItem_Click);
             // 
             // listViewRemote
             // 
@@ -384,7 +400,7 @@
             // buttonPatch
             // 
             this.buttonPatch.Enabled = false;
-            this.buttonPatch.Location = new System.Drawing.Point(556, 324);
+            this.buttonPatch.Location = new System.Drawing.Point(237, 324);
             this.buttonPatch.Name = "buttonPatch";
             this.buttonPatch.Size = new System.Drawing.Size(52, 23);
             this.buttonPatch.TabIndex = 12;
@@ -395,7 +411,7 @@
             // buttonGetState
             // 
             this.buttonGetState.Enabled = false;
-            this.buttonGetState.Location = new System.Drawing.Point(163, 324);
+            this.buttonGetState.Location = new System.Drawing.Point(105, 324);
             this.buttonGetState.Name = "buttonGetState";
             this.buttonGetState.Size = new System.Drawing.Size(60, 23);
             this.buttonGetState.TabIndex = 13;
@@ -406,7 +422,7 @@
             // buttonSetState
             // 
             this.buttonSetState.Enabled = false;
-            this.buttonSetState.Location = new System.Drawing.Point(229, 324);
+            this.buttonSetState.Location = new System.Drawing.Point(171, 324);
             this.buttonSetState.Name = "buttonSetState";
             this.buttonSetState.Size = new System.Drawing.Size(60, 23);
             this.buttonSetState.TabIndex = 14;
@@ -419,17 +435,49 @@
             this.buttonTest.Enabled = false;
             this.buttonTest.Location = new System.Drawing.Point(12, 324);
             this.buttonTest.Name = "buttonTest";
-            this.buttonTest.Size = new System.Drawing.Size(60, 23);
+            this.buttonTest.Size = new System.Drawing.Size(37, 23);
             this.buttonTest.TabIndex = 15;
             this.buttonTest.Text = "Test";
             this.buttonTest.UseVisualStyleBackColor = true;
             this.buttonTest.Click += new System.EventHandler(this.buttonTest_Click);
+            // 
+            // buttonSoftReset
+            // 
+            this.buttonSoftReset.Enabled = false;
+            this.buttonSoftReset.Location = new System.Drawing.Point(555, 324);
+            this.buttonSoftReset.Name = "buttonSoftReset";
+            this.buttonSoftReset.Size = new System.Drawing.Size(53, 23);
+            this.buttonSoftReset.TabIndex = 16;
+            this.buttonSoftReset.Text = "Reset";
+            this.buttonSoftReset.UseVisualStyleBackColor = true;
+            this.buttonSoftReset.Click += new System.EventHandler(this.buttonSoftReset_Click);
+            // 
+            // buttonMenu
+            // 
+            this.buttonMenu.Enabled = false;
+            this.buttonMenu.Location = new System.Drawing.Point(55, 324);
+            this.buttonMenu.Name = "buttonMenu";
+            this.buttonMenu.Size = new System.Drawing.Size(46, 23);
+            this.buttonMenu.TabIndex = 17;
+            this.buttonMenu.Text = "Menu";
+            this.buttonMenu.UseVisualStyleBackColor = true;
+            this.buttonMenu.Click += new System.EventHandler(this.buttonMenu_Click);
+            // 
+            // menuToolStripMenuItem
+            // 
+            this.menuToolStripMenuItem.Enabled = false;
+            this.menuToolStripMenuItem.Name = "menuToolStripMenuItem";
+            this.menuToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.menuToolStripMenuItem.Text = "Menu";
+            this.menuToolStripMenuItem.Click += new System.EventHandler(this.menuToolStripMenuItem_Click);
             // 
             // usb2snes
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(620, 372);
+            this.Controls.Add(this.buttonMenu);
+            this.Controls.Add(this.buttonSoftReset);
             this.Controls.Add(this.buttonTest);
             this.Controls.Add(this.buttonSetState);
             this.Controls.Add(this.buttonGetState);
@@ -510,5 +558,9 @@
         private System.Windows.Forms.Button buttonGetState;
         private System.Windows.Forms.Button buttonSetState;
         private System.Windows.Forms.Button buttonTest;
+        private System.Windows.Forms.Button buttonSoftReset;
+        private System.Windows.Forms.ToolStripMenuItem resetToolStripMenuItem;
+        private System.Windows.Forms.Button buttonMenu;
+        private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
     }
 }

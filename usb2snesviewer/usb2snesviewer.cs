@@ -149,6 +149,8 @@ namespace WindowsFormsApplication1
                 // FIXME: insert/remove shouldn't call this event.  This is only supposed to be for user changes (writes)
                 _provider.Changed += new EventHandler(UpdateSnesMemory);
                 hexBox.ByteProvider = _provider;
+
+                hexBox.Font = new Font("MonoSpace", 8);
             }
             catch (IOException x)
             {

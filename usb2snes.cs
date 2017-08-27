@@ -804,6 +804,17 @@ namespace WindowsFormsApplication1
             buttonBoot.PerformClick();
         }
 
+        private void resetToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            buttonSoftReset.PerformClick();
+        }
+
+
+        private void menuToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            buttonMenu.PerformClick();
+        }
+
         private void deleteToolStripMenuItem_Click(object sender, EventArgs e)
         {
             buttonDelete.PerformClick();
@@ -820,6 +831,7 @@ namespace WindowsFormsApplication1
             {
                 refreshToolStripMenuItem.Enabled = false;
                 bootToolStripMenuItem.Enabled = false;
+                resetToolStripMenuItem.Enabled = false;
                 makeDirToolStripMenuItem.Enabled = false;
                 deleteToolStripMenuItem.Enabled = false;
                 renameToolStripMenuItem.Enabled = false;
@@ -830,6 +842,7 @@ namespace WindowsFormsApplication1
 
                     refreshToolStripMenuItem.Enabled = true;
                     makeDirToolStripMenuItem.Enabled = true;
+                    resetToolStripMenuItem.Enabled = true;
 
                     var loc = e.Location;
                     loc.Offset(listViewRemote.Location);
@@ -1144,6 +1157,47 @@ namespace WindowsFormsApplication1
 
                 fs.Close();
             }
+        }
+
+        private void buttonSoftReset_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+                    core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE);
+                    core.Disconnect();
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+        }
+
+        private void buttonMenu_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (connected)
+                {
+                    core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+                    core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_RESET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE);
+                    core.Disconnect();
+                }
+            }
+            catch (Exception x)
+            {
+                toolStripStatusLabel1.Text = x.Message.ToString();
+                core.Disconnect();
+                connected = false;
+                EnableButtons(false);
+            }
+
         }
     }
 }
