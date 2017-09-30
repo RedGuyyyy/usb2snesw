@@ -15,8 +15,8 @@ namespace usb2snes.core
             // address space operations
             USBINT_SERVER_OPCODE_GET = 0,
             USBINT_SERVER_OPCODE_PUT,
-            USBINT_SERVER_OPCODE_EXECUTE,
-            USBINT_SERVER_OPCODE_ATOMIC,
+            USBINT_SERVER_OPCODE_VGET,
+            USBINT_SERVER_OPCODE_VPUT,
 
             // file system operations
             USBINT_SERVER_OPCODE_LS,
@@ -30,7 +30,7 @@ namespace usb2snes.core
             USBINT_SERVER_OPCODE_MENU_LOCK,
             USBINT_SERVER_OPCODE_MENU_UNLOCK,
             USBINT_SERVER_OPCODE_MENU_RESET,
-            USBINT_SERVER_OPCODE_EXE,
+            USBINT_SERVER_OPCODE_STREAM,
             USBINT_SERVER_OPCODE_TIME,
 
             // response
@@ -41,6 +41,7 @@ namespace usb2snes.core
         {
             USBINT_SERVER_SPACE_FILE = 0,
             USBINT_SERVER_SPACE_SNES,
+            USBINT_SERVER_SPACE_MSU,
         };
 
         public enum usbint_server_flags_e
@@ -50,6 +51,8 @@ namespace usb2snes.core
             USBINT_SERVER_FLAGS_ONLYRESET = 2,
             USBINT_SERVER_FLAGS_CLRX = 4,
             USBINT_SERVER_FLAGS_SETX = 8,
+            USBINT_SERVER_FLAGS_NORESP = 64,
+            USBINT_SERVER_FLAGS_64BDATA = 128,
         };
 
         static core()
@@ -60,6 +63,11 @@ namespace usb2snes.core
         public static bool Connected()
         {
             return serialPort.IsOpen;
+        }
+
+        public static string PortName()
+        {
+            return serialPort.PortName;
         }
 
         public class Port : IComparable<Port>
@@ -224,7 +232,24 @@ namespace usb2snes.core
 
                             break;
                         }
+                    case usbint_server_opcode_e.USBINT_SERVER_OPCODE_VGET:
+                    case usbint_server_opcode_e.USBINT_SERVER_OPCODE_VPUT:
+                        {
+                            if (args.Length == 0 || args.Length > 8) throw new Exception("Command: " + opcode.ToString() + " need 2 <= args <= 16 and a multiple of 2.  Format: (size0, offset0), ...");
+                            uint i = 0;
+                            foreach (var a in args) {
+                                var t = (Tuple<int, int>)a;
+                                Byte size = Convert.ToByte(t.Item2);
+                                uint offset = Convert.ToUInt32(t.Item1);
+                                tBuffer[32 + i * 4] = size;
+                                tBuffer[33 + i * 4] = Convert.ToByte((offset >> 16) & 0xFF);
+                                tBuffer[34 + i * 4] = Convert.ToByte((offset >> 8) & 0xFF);
+                                tBuffer[35 + i * 4] = Convert.ToByte((offset >> 0) & 0xFF);
+                                i++;
+                            }
 
+                            break;
+                        }
                     // passthrough command
                     case usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESET:
                     case usbint_server_opcode_e.USBINT_SERVER_OPCODE_MENU_RESET:
@@ -235,14 +260,18 @@ namespace usb2snes.core
                 }
             }
 
-            serialPort.Write(tBuffer, 0, tBuffer.Length);
+            // handle 64B commands here
+            int cmdSize = (opcode == usbint_server_opcode_e.USBINT_SERVER_OPCODE_VGET || opcode == usbint_server_opcode_e.USBINT_SERVER_OPCODE_VPUT) ? 64 : tBuffer.Length;
+            serialPort.Write(tBuffer, 0, cmdSize);
 
             // read response command
-            Array.Clear(tBuffer, 0, tBuffer.Length);
             int curSize = 0;
-            while (curSize < 512) curSize += serialPort.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-            if (tBuffer[0] != 'U' || tBuffer[1] != 'S' || tBuffer[2] != 'B' || tBuffer[3] != 'A' || tBuffer[4] != Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESPONSE) || tBuffer[5] == 1)
-                throw new Exception("Response Error Request: " + opcode.ToString() + " space: " + space.ToString() + " flags: " + flags.ToString() + " Response: " + tBuffer[4].ToString());
+            if ((flags & usbint_server_flags_e.USBINT_SERVER_FLAGS_NORESP) == 0) {
+                Array.Clear(tBuffer, 0, tBuffer.Length);
+                while (curSize < 512) curSize += serialPort.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
+                if (tBuffer[0] != 'U' || tBuffer[1] != 'S' || tBuffer[2] != 'B' || tBuffer[3] != 'A' || tBuffer[4] != Convert.ToByte(usbint_server_opcode_e.USBINT_SERVER_OPCODE_RESPONSE) || tBuffer[5] == 1)
+                    throw new Exception("Response Error Request: " + opcode.ToString() + " space: " + space.ToString() + " flags: " + flags.ToString() + " Response: " + tBuffer[4].ToString());
+            }
 
             // handle response
             switch (opcode)
@@ -297,6 +326,7 @@ namespace usb2snes.core
 
                         break;
                     }
+                case usbint_server_opcode_e.USBINT_SERVER_OPCODE_VGET:
                 case usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET:
                     {
                         int fileSize = 0;
@@ -317,7 +347,7 @@ namespace usb2snes.core
         {
             if (size > data.Length) throw new Exception("Bytes to send larger than array size");
             // always send the full array
-            serialPort.Write(data, 0, data.Length);
+            serialPort.Write(data, 0, size);
         }
 
         public static int GetData(byte[] data, int offset, int length)

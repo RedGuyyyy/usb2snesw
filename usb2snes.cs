@@ -265,7 +265,9 @@ namespace WindowsFormsApplication1
 
                             FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
 
-                            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, remoteDir + "/" + safeFileName, (uint)fs.Length);
+                            int blockSize = 512;
+                            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE,
+                                ((blockSize == 64) ? core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA : core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE), remoteDir + "/" + safeFileName, (uint)fs.Length);
 
                             // write data
                             byte[] tBuffer = new byte[512];
@@ -276,8 +278,8 @@ namespace WindowsFormsApplication1
                             toolStripStatusLabel1.Text = "uploading: " + safeFileName;
                             while (curSize < fs.Length)
                             {
-                                int bytesToWrite = fs.Read(tBuffer, 0, 512);
-                                core.SendData(tBuffer, bytesToWrite);
+                                int bytesToWrite = fs.Read(tBuffer, 0, blockSize);
+                                core.SendData(tBuffer, tBuffer.Length);
                                 curSize += bytesToWrite;
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                             }
@@ -324,7 +326,9 @@ namespace WindowsFormsApplication1
                             {
                                 FileStream fs = new FileStream(localDir + @"\" + item.Text, FileMode.Create, FileAccess.Write);
 
-                                int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, name);
+                                int blockSize = 512;
+                                int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE,
+                                    ((blockSize == 64) ? core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA : core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE), name);
 
                                 // read data
                                 byte[] tBuffer = new byte[512];
@@ -333,12 +337,13 @@ namespace WindowsFormsApplication1
                                 toolStripProgressBar1.Value = 0;
                                 toolStripProgressBar1.Enabled = true;
                                 toolStripStatusLabel1.Text = "downloading: " + name;
+
                                 while (curSize < fileSize)
                                 {
                                     int prevSize = curSize;
                                     //curSize += serialPort1.Read(tBuffer, (curSize % 512), 512 - (curSize % 512));
-                                    curSize += core.GetData(tBuffer, (curSize % 512), 512 - (curSize % 512));
-                                    fs.Write(tBuffer, (prevSize % 512), curSize - prevSize);
+                                    curSize += core.GetData(tBuffer, (curSize % blockSize), blockSize - (curSize % blockSize));
+                                    fs.Write(tBuffer, (prevSize % blockSize), curSize - prevSize);
                                     toolStripProgressBar1.Value = 100 * curSize / fileSize;
                                 }
                                 toolStripStatusLabel1.Text = "idle";
@@ -657,7 +662,7 @@ namespace WindowsFormsApplication1
                             while (curSize < fs.Length)
                             {
                                 int bytesToWrite = fs.Read(tBuffer, 0, 512);
-                                core.SendData(tBuffer, bytesToWrite);
+                                core.SendData(tBuffer, tBuffer.Length);
                                 //serialPort1.Write(tBuffer, 0, bytesToWrite);
                                 curSize += bytesToWrite;
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
@@ -695,35 +700,163 @@ namespace WindowsFormsApplication1
             {
                 if (connected)
                 {
-                    openFileDialog1.Title = "RAM IPS file to load";
-                    openFileDialog1.Filter = "IPS File|*.ips"
-                                           + "|All Files|*.*";
-                    openFileDialog1.FileName = "";
 
-                    if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                    if (true)
                     {
-                        // boot currently selected ROM
-                        bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_SKIPRESET);
-                        buttonBoot.PerformClick();
-                        bootFlags = 0;
+                        openFileDialog1.Title = "RAM IPS file to load";
+                        openFileDialog1.Filter = "IPS File|*.ips"
+                                               + "|All Files|*.*";
+                        openFileDialog1.FileName = "";
 
-                        // apply the selected patch
+                        if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
+                        {
+                            // boot currently selected ROM
+                            bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_SKIPRESET);
+                            buttonBoot.PerformClick();
+                            bootFlags = 0;
+
+                            // apply the selected patch
+                            core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
+
+                            for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
+                            {
+                                string fileName = openFileDialog1.FileNames[i];
+                                string safeFileName = openFileDialog1.SafeFileNames[i];
+
+                                applyPatch(fileName, safeFileName);
+                            }
+
+                            core.Disconnect();
+
+                            // perform reset
+                            bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_ONLYRESET);
+                            buttonBoot.PerformClick();
+                            bootFlags = 0;
+                        }
+                    }
+                    else
+                    {
+                        // test vector operations
                         core.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
 
-                        for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
-                        {
-                            string fileName = openFileDialog1.FileNames[i];
-                            string safeFileName = openFileDialog1.SafeFileNames[i];
+                        byte[] tBuffer = new byte[512];
+                        int fileSize;
+                        int curSize;
 
-                            applyPatch(fileName, safeFileName);
+                        for (int c = 0; c < 2; c++)
+                        {
+                            // NORESP=1
+                            for (int i = 0; i < 1; i++)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_VGET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA | core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NORESP,
+                                    Tuple.Create(0xFFA000, 64)); //, Tuple.Create(0xFFA100, 255), Tuple.Create(0xFFA200, 255)); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
+                                curSize = 0;
+                                fileSize = 64;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                for (int j = 0; j < 512; j++)
+                                {
+                                    tBuffer[j] = Convert.ToByte(j & 0xFF);
+                                }
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    curSize += core.GetData(tBuffer, (curSize % 64), 64 - (curSize % 64));
+                                    //core.SendData(tBuffer, 64); curSize += 64;
+                                }
+                            }
+
+                            // NORESP=0
+                            for (int i = 0; i < 1; i++)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_VGET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA | core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE,
+                                    Tuple.Create(0xFFA000, 64)); //, Tuple.Create(0xFFA100, 255), Tuple.Create(0xFFA200, 255)); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
+                                curSize = 0;
+                                fileSize = 64;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                for (int j = 0; j < 512; j++)
+                                {
+                                    tBuffer[j] = Convert.ToByte(j & 0xFF);
+                                }
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    curSize += core.GetData(tBuffer, (curSize % 64), 64 - (curSize % 64));
+                                    //core.SendData(tBuffer, 64); curSize += 64;
+                                }
+                            }
+
+                            for (int i = 0; i < 1; i++)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA | core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NORESP,
+                                    (uint)0xFFA200, (uint)512); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
+                                curSize = 0;
+                                fileSize = 512;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    //curSize += core.GetData(tBuffer, (curSize % 64), 64 - (curSize % 64));
+                                    core.SendData(tBuffer, 64); curSize += 64;
+                                }
+                            }
+
+                            for (int i = 0; i < 1; i++)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA,
+                                    (uint)0xFFA200, (uint)64); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
+                                curSize = 0;
+                                fileSize = 64;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    curSize += core.GetData(tBuffer, (curSize % 64), 64 - (curSize % 64));
+                                    //core.SendData(tBuffer, 64); curSize += 64;
+                                }
+                            }
+
+                            for (int i = 0; i < 1; i++)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA | core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NORESP,
+                                    (uint)0xFFA200, (uint)64); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
+                                curSize = 0;
+                                fileSize = 64;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    curSize += core.GetData(tBuffer, (curSize % 64), 64 - (curSize % 64));
+                                    //core.SendData(tBuffer, 64); curSize += 64;
+                                }
+                            }
+
+                            for (int i = 0; i < 1; i++)
+                            {
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_VPUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_64BDATA | core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NORESP,
+                                    Tuple.Create(0xFFA000, 255), Tuple.Create(0xFFA100, 255), Tuple.Create(0xFFA200, 255)); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
+                                curSize = 0;
+                                fileSize = 255 * 3;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                for (int j = 0; j < 512; j++)
+                                {
+                                    tBuffer[j] = Convert.ToByte(j & 0xFF);
+                                }
+                                while (curSize < fileSize)
+                                {
+                                    int prevSize = curSize;
+                                    //curSize += core.GetData(tBuffer, (curSize % 64), 64 - (curSize % 64));
+                                    core.SendData(tBuffer, 64); curSize += 64;
+                                }
+                            }
+
+                            for (int i = 0; i < 1; i++)
+                            {
+                                string name = remoteDir + '/' + listViewRemote.SelectedItems[0].Text;
+                                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_BOOT, core.usbint_server_space_e.USBINT_SERVER_SPACE_FILE, (core.usbint_server_flags_e)bootFlags, name);
+                            }
                         }
 
                         core.Disconnect();
-
-                        // perform reset
-                        bootFlags = Convert.ToByte(core.usbint_server_flags_e.USBINT_SERVER_FLAGS_ONLYRESET);
-                        buttonBoot.PerformClick();
-                        bootFlags = 0;
                     }
                 }
             }
@@ -771,7 +904,7 @@ namespace WindowsFormsApplication1
                         Array.Clear(tBuffer, 0, tBuffer.Length);
                         Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
 
-                        core.SendData(tBuffer, bytesToWrite);
+                        core.SendData(tBuffer, tBuffer.Length);
 
                         curSize += bytesToWrite;
                         toolStripProgressBar1.Value = 100 * curSize / patch.data.Count;

@@ -141,6 +141,9 @@ namespace WindowsFormsApplication1
             comboBoxRegion.Items.Add("PPUREG");
             comboBoxRegion.Items.Add("CPUREG");
             comboBoxRegion.Items.Add("MISC");
+            comboBoxRegion.Items.Add("MSU");
+            comboBoxRegion.Items.Add("ROM");
+            comboBoxRegion.Items.Add("TEST");
 
             try
             {
@@ -214,18 +217,22 @@ namespace WindowsFormsApplication1
             {
                 int oldRegionSize = _regionSize;
 
-                switch (comboBoxRegion.SelectedIndex)
+                _region = comboBoxRegion.SelectedIndex;
+                switch (_region)
                 {
-                    case 0:  _regionBase = 0xF50000; _regionSize = 0x50000; break;
-                    case 1:  _regionBase = 0xF50000; _regionSize = 0x20000; break;
-                    case 2:  _regionBase = 0xF70000; _regionSize = 0x10000; break;
-                    case 3:  _regionBase = 0xF80000; _regionSize = 0x10000; break;
-                    case 4:  _regionBase = 0xF90000; _regionSize = 0x00200; break;
-                    case 5:  _regionBase = 0xF90200; _regionSize = 0x00220; break;
-                    case 6:  _regionBase = 0xF90500; _regionSize = 0x00200; break;
-                    case 7:  _regionBase = 0xF90700; _regionSize = 0x00200; break;
-                    case 8:  _regionBase = 0xF90420; _regionSize = 0x000E0; break;
-                    default: _regionBase = 0xF50000; _regionSize = 0x50000; break;
+                    case 0:  _regionBase = 0xF50000; _regionSize = 0x0050000; break;
+                    case 1:  _regionBase = 0xF50000; _regionSize = 0x0020000; break;
+                    case 2:  _regionBase = 0xF70000; _regionSize = 0x0010000; break;
+                    case 3:  _regionBase = 0xF80000; _regionSize = 0x0010000; break;
+                    case 4:  _regionBase = 0xF90000; _regionSize = 0x0000200; break;
+                    case 5:  _regionBase = 0xF90200; _regionSize = 0x0000220; break;
+                    case 6:  _regionBase = 0xF90500; _regionSize = 0x0000200; break;
+                    case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
+                    case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
+                    case 9:  _regionBase = 0x000000; _regionSize = 0x0004000; break;
+                    case 10: _regionBase = 0x000000; _regionSize = 0x1000000; break;
+                    case 11: _regionBase = 0x000000; _regionSize = 0x0000100; break;
+                    default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
                 }
 
                 if (oldRegionSize < _regionSize)
@@ -291,30 +298,37 @@ namespace WindowsFormsApplication1
         {
             System.Timers.Timer timer = (System.Timers.Timer)source;
             //Monitor.Enter(_timerLock);
-            if (!Monitor.TryEnter(_timerLock))
-                return;
-
-            try
-            {
-                // read the snes memory
-                GetDataAndResetHead();
-                _timer.Start();
-            }
-            catch (Exception x)
-            {
-                this.Invoke(new Action(() => { HandleException(x); }));
-            }
-            finally
-            {
-                Monitor.Exit(_timerLock);
-            }
 
             if (checkBoxAutoUpdate.Checked)
+            {
+                if (!Monitor.TryEnter(_timerLock))
+                    return;
+
+                try
+                {
+                    // read the snes memory
+                    GetDataAndResetHead();
+                    _timer.Start();
+                }
+                catch (Exception x)
+                {
+                    this.Invoke(new Action(() => { HandleException(x); }));
+                }
+                finally
+                {
+                    Monitor.Exit(_timerLock);
+                }
+
                 try
                 {
                     this.Invoke(new Action(() => { RefreshMemoryView(); }));
                 }
                 catch (Exception x) { }
+            }
+            else
+            {
+                _timer.Start();
+            }
         }
 
         private void UpdateSnesMemory(object source, EventArgs e)
@@ -384,7 +398,7 @@ namespace WindowsFormsApplication1
                 core.SendData(tBuffer, 2);
             }
 
-            int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)_regionBase, (uint)_regionSize);
+            int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, (_region == 9 ? core.usbint_server_space_e.USBINT_SERVER_SPACE_MSU : core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES), core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)_regionBase, (uint)_regionSize);
             int curSize = 0;
             while (curSize < fileSize)
             {
@@ -400,10 +414,11 @@ namespace WindowsFormsApplication1
         /// <summary>
         /// Local representation of memory.
         /// </summary>
-        private byte[] _memory = new byte[0x50000];
+        private byte[] _memory = new byte[0x1000000];
         private DynamicByteProvider _provider;
 
         // memory regions
+        private int _region = 0;
         private int _regionBase = 0;
         private int _regionSize = 0x50000;
 
@@ -416,6 +431,75 @@ namespace WindowsFormsApplication1
         private int sendQTailPtr = 0, sendQHeadPtr = 0;
 
         struct ByteChange { public long index; public byte value; }
+
+        private void buttonExport_Click(object sender, EventArgs e)
+        {
+            FileStream fs = new FileStream(@"export-" + comboBoxRegion.SelectedItem.ToString() + ".bin", FileMode.Create, FileAccess.Write);
+            fs.Write(_memory, 0, _regionSize);
+            fs.Close();
+        }
+
+        private void textBoxBase_TextChanged(object sender, EventArgs e)
+        {
+            if (comboBoxRegion.SelectedItem.ToString() == "TEST") {
+                try
+                {
+                    _regionBase = Convert.ToInt32(textBoxBase.Text, 16);
+                }
+                catch (Exception x) { }
+
+            }
+        }
+
+        private void textBoxSize_TextChanged(object sender, EventArgs e)
+        {
+            if (comboBoxRegion.SelectedItem.ToString() == "TEST")
+            {
+                _timer.Stop();
+                Monitor.Enter(_timerLock);
+
+                var oldRegionSize = _regionSize;
+
+                try
+                {
+                    _regionSize = Convert.ToInt32(textBoxSize.Text, 16);
+                    _regionSize = _regionSize != 0 ? _regionSize : 1;
+
+                    if (oldRegionSize < _regionSize)
+                    {
+                        _provider.InsertBytes(oldRegionSize, new byte[_regionSize - oldRegionSize]);
+                    }
+                    else if (oldRegionSize > _regionSize)
+                    {
+                        _provider.DeleteBytes(_regionSize, oldRegionSize - _regionSize);
+                    }
+
+                }
+                catch (Exception x)
+                {
+                    //HandleException(x);
+                }
+                finally
+                {
+                    Monitor.Exit(_timerLock);
+                    _timer.Start();
+                }
+
+            }
+
+
+        }
+
+        private void pictureConnected_Click(object sender, EventArgs e)
+        {
+            _timer.Stop();
+            Monitor.Enter(_timerLock);
+            core.Disconnect();
+            pictureConnected.Image = Resources.bullet_red;
+            pictureConnected.Refresh();
+            Monitor.Exit(_timerLock);
+        }
+
         CommunicationQueue<ByteChange> _queue = new CommunicationQueue<ByteChange>();
     }
 

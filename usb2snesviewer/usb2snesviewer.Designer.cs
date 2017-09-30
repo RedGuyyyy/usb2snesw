@@ -38,6 +38,9 @@
             this.checkBoxAutoUpdate = new System.Windows.Forms.CheckBox();
             this.hexBox = new Be.Windows.Forms.HexBox();
             this.comboBoxRegion = new System.Windows.Forms.ComboBox();
+            this.buttonExport = new System.Windows.Forms.Button();
+            this.textBoxBase = new System.Windows.Forms.TextBox();
+            this.textBoxSize = new System.Windows.Forms.TextBox();
             this.statusStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureConnected)).BeginInit();
             this.SuspendLayout();
@@ -79,6 +82,7 @@
             // 
             // pictureConnected
             // 
+            this.pictureConnected.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.pictureConnected.Image = global::usb2snesviewer.Properties.Resources.bullet_red;
             this.pictureConnected.InitialImage = ((System.Drawing.Image)(resources.GetObject("pictureConnected.InitialImage")));
             this.pictureConnected.Location = new System.Drawing.Point(373, 17);
@@ -86,6 +90,7 @@
             this.pictureConnected.Size = new System.Drawing.Size(17, 20);
             this.pictureConnected.TabIndex = 8;
             this.pictureConnected.TabStop = false;
+            this.pictureConnected.Click += new System.EventHandler(this.pictureConnected_Click);
             // 
             // buttonRefresh
             // 
@@ -122,7 +127,7 @@
             this.hexBox.Location = new System.Drawing.Point(12, 41);
             this.hexBox.Name = "hexBox";
             this.hexBox.ShadowSelectionColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(60)))), ((int)(((byte)(188)))), ((int)(((byte)(255)))));
-            this.hexBox.Size = new System.Drawing.Size(640, 196);
+            this.hexBox.Size = new System.Drawing.Size(640, 173);
             this.hexBox.StringViewVisible = true;
             this.hexBox.TabIndex = 9;
             this.hexBox.UseFixedBytesPerLine = true;
@@ -137,11 +142,45 @@
             this.comboBoxRegion.TabIndex = 11;
             this.comboBoxRegion.SelectedIndexChanged += new System.EventHandler(this.comboBoxRegion_SelectedIndexChanged);
             // 
+            // buttonExport
+            // 
+            this.buttonExport.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonExport.Location = new System.Drawing.Point(12, 221);
+            this.buttonExport.Name = "buttonExport";
+            this.buttonExport.Size = new System.Drawing.Size(51, 23);
+            this.buttonExport.TabIndex = 12;
+            this.buttonExport.Text = "Export";
+            this.buttonExport.UseVisualStyleBackColor = true;
+            this.buttonExport.Click += new System.EventHandler(this.buttonExport_Click);
+            // 
+            // textBoxBase
+            // 
+            this.textBoxBase.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.textBoxBase.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
+            this.textBoxBase.Location = new System.Drawing.Point(69, 222);
+            this.textBoxBase.Name = "textBoxBase";
+            this.textBoxBase.Size = new System.Drawing.Size(83, 20);
+            this.textBoxBase.TabIndex = 13;
+            this.textBoxBase.TextChanged += new System.EventHandler(this.textBoxBase_TextChanged);
+            // 
+            // textBoxSize
+            // 
+            this.textBoxSize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.textBoxSize.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
+            this.textBoxSize.Location = new System.Drawing.Point(158, 222);
+            this.textBoxSize.Name = "textBoxSize";
+            this.textBoxSize.Size = new System.Drawing.Size(83, 20);
+            this.textBoxSize.TabIndex = 14;
+            this.textBoxSize.TextChanged += new System.EventHandler(this.textBoxSize_TextChanged);
+            // 
             // usb2snesviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(664, 268);
+            this.Controls.Add(this.textBoxSize);
+            this.Controls.Add(this.textBoxBase);
+            this.Controls.Add(this.buttonExport);
             this.Controls.Add(this.comboBoxRegion);
             this.Controls.Add(this.checkBoxAutoUpdate);
             this.Controls.Add(this.hexBox);
@@ -171,6 +210,9 @@
         private Be.Windows.Forms.HexBox hexBox;
         private System.Windows.Forms.CheckBox checkBoxAutoUpdate;
         private System.Windows.Forms.ComboBox comboBoxRegion;
+        private System.Windows.Forms.Button buttonExport;
+        private System.Windows.Forms.TextBox textBoxBase;
+        private System.Windows.Forms.TextBox textBoxSize;
     }
 }
 
