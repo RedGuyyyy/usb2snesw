@@ -412,8 +412,6 @@ namespace usb2snes
                             }
                         }
                     }
-
-                    //_port.Disconnect();
                 }
             }
             catch (Exception x)
@@ -452,7 +450,6 @@ namespace usb2snes
             catch (Exception x)
             {
                 toolStripStatusLabel1.Text = x.Message.ToString();
-                //_port.Disconnect();
                 connected = false;
                 EnableButtons(false);
             }
@@ -487,7 +484,6 @@ namespace usb2snes
             catch (Exception x)
             {
                 toolStripStatusLabel1.Text = x.Message.ToString();
-                //_port.Disconnect();
                 connected = false;
                 EnableButtons(false);
             }
@@ -591,13 +587,11 @@ namespace usb2snes
                         FileStream fs = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write);
 
                         int fileSize = 0x50000;
-                        // (int)_port.SendCommand(usbint_server_opcode_e.GET, usbint_server_space_e.SNES, usbint_server_flags_e.NONE, (uint)0xF00000, (uint)0x50000);
                         RequestType req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), fileSize.ToString("X") }) };
                         _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
 
                         // read data
                         byte[] tBuffer = new byte[512];
-                        int curSize = 0;
                         Array.Clear(tBuffer, 0, tBuffer.Length);
                         toolStripProgressBar1.Value = 0;
                         toolStripProgressBar1.Enabled = true;
@@ -672,7 +666,6 @@ namespace usb2snes
                             {
                                 int bytesToWrite = fs.Read(tBuffer, 0, 512);
                                 curSize += bytesToWrite;
-                                //_port.SendData(tBuffer, tBuffer.Length);
                                 _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fs.Length, CancellationToken.None).Wait();
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                             }
@@ -707,7 +700,7 @@ namespace usb2snes
                 if (connected)
                 {
 
-                    if (true)
+                    if (false)
                     {
                         openFileDialog1.Title = "RAM IPS file to load";
                         openFileDialog1.Filter = "IPS File|*.ips"
@@ -722,8 +715,6 @@ namespace usb2snes
                             bootFlags = usbint_server_flags_e.NONE;
 
                             // apply the selected patch
-                            //_port.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
-
                             for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
                             {
                                 string fileName = openFileDialog1.FileNames[i];
@@ -732,16 +723,17 @@ namespace usb2snes
                                 applyPatch(fileName, safeFileName);
                             }
 
-                            //_port.Disconnect();
-
                             // perform reset
                             bootFlags = usbint_server_flags_e.ONLYRESET;
                             buttonBoot.PerformClick();
                             bootFlags = usbint_server_flags_e.NONE;
                         }
                     }
-                    else if (false)
+                    else if (true)
                     {
+                        RequestType req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
+                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                        var rsp = GetResponse();
                         //_port.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
                         //_port.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.FILE, usbint_server_flags_e.NONE);
                         //_port.Disconnect();

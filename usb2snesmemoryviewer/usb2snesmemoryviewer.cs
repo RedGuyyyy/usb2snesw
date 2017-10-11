@@ -374,7 +374,7 @@ namespace usb2snes
             ////core.Disconnect();
             _ws.CloseAsync(WebSocketCloseStatus.InternalServerError, "Client exception", CancellationToken.None).Wait();
             // reset socket state
-            _ws = new ClientWebSocket();
+            //_ws = new ClientWebSocket();
             pictureConnected.Image = Resources.bullet_red;
             //pictureConnected.Refresh();
         }

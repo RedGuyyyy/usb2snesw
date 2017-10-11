@@ -408,6 +408,7 @@ namespace usb2snes
                                 try
                                 {
                                     var task = socket.Value.CloseAsync(WebSocketCloseStatus.InternalServerError, "USB failure: " + e.Message, CancellationToken.None);
+                                    // don't wait for the close to succeed.  causes deadlock?
                                 }
                                 catch (Exception x)
                                 {
@@ -417,7 +418,7 @@ namespace usb2snes
                             }
                             _socketHash.Clear();
 
-                            // reset USB state by generating new objects
+                            // reset USB state by generating new usb2snes core
                             lock (elem.Port)
                             {
                                 elem.Port.Count = 0;
@@ -425,7 +426,7 @@ namespace usb2snes
                                 //elem.Port.Sch = new Scheduler();
                             }
 
-                            // clear the queue - there are probably races here with clearing out the queue
+                            // clear the queue - there are probably races here with disconnecting sockets and traffic they are generating.
                             _q.Clear();
                         }
 

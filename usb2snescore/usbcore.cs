@@ -280,9 +280,11 @@ namespace usb2snes {
             switch (opcode)
             {
                 case usbint_server_opcode_e.INFO:
-                    string s = new ArraySegment<Byte>(tBuffer, 260, 511).ToString();
-                    ret = s;
-                    break;
+                    {
+                        var s = System.Text.Encoding.UTF8.GetString(tBuffer, 256 + 4, Array.IndexOf<byte>(tBuffer, 0, 256 + 4) - (256 + 4));
+                        ret = s;
+                        break;
+                    }
                 case usbint_server_opcode_e.LS:
                     {
                         int type = 0;
