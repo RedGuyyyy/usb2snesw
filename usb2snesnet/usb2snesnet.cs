@@ -8,7 +8,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using usb2snes.core;
 using usb2snes.utils;
 using usb2snesnet.Properties;
 using Be.Windows.Forms;
@@ -19,7 +18,7 @@ using System.Threading;
 using System.Net;
 using System.Net.Sockets;
 
-namespace WindowsFormsApplication1
+namespace usb2snes
 {
     public partial class usb2snesnet : Form
     {
@@ -520,7 +519,7 @@ namespace WindowsFormsApplication1
                 _server.Stop();
                 _serverThread.Join();
             }
-            core.Disconnect();
+            _port.Disconnect();
         }
 
         private void comboBoxPort_SelectedIndexChanged(object sender, EventArgs e)
@@ -533,8 +532,8 @@ namespace WindowsFormsApplication1
                 {
                     var port = (core.Port)comboBoxPort.SelectedItem;
 
-                    core.Disconnect();
-                    core.Connect(port.Name);
+                    _port.Disconnect();
+                    _port.Connect(port.Name);
                     pictureConnected.Image = Resources.bullet_green;
                     pictureConnected.Refresh();
                     toolStripStatusLabel1.Text = "idle";
@@ -627,8 +626,8 @@ namespace WindowsFormsApplication1
                         {
                             tBuffer[i] = op.data[i];
                         }
-                        core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)(0xF9F800 + sendQTailPtr), (uint)op.data.Length);
-                        core.SendData(tBuffer, op.data.Length);
+                        _port.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.SNES, usbint_server_flags_e.NONE, (uint)(0xF9F800 + sendQTailPtr), (uint)op.data.Length);
+                        _port.SendData(tBuffer, op.data.Length);
 
                         sendQTailPtr = (sendQTailPtr + 4) & 0x7FC;
 
@@ -645,8 +644,8 @@ namespace WindowsFormsApplication1
                 tBuffer[0] = Convert.ToByte((sendQTailPtr >> 0) & 0xFF);
                 tBuffer[1] = Convert.ToByte((sendQTailPtr >> 8) & 0xFF);
 
-                core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF9EFF6, (uint)0x2);
-                core.SendData(tBuffer, 2);
+                _port.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.SNES, usbint_server_flags_e.NONE, (uint)0xF9EFF6, (uint)0x2);
+                _port.SendData(tBuffer, 2);
 
                 _timer.Enabled = true;
             }
@@ -660,18 +659,18 @@ namespace WindowsFormsApplication1
         {
             //_timer.Enabled = false;
             toolStripStatusLabel1.Text = x.Message.ToString();
-            core.Disconnect();
+            _port.Disconnect();
             pictureConnected.Image = Resources.bullet_red;
             //pictureConnected.Refresh();
         }
 
         private void GetDataAndResetHead()
         {
-            int fileSize = (int)core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_GET, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF9E000, (uint)0x2000);
+            int fileSize = (int)_port.SendCommand(usbint_server_opcode_e.GET, usbint_server_space_e.SNES, usbint_server_flags_e.NONE, (uint)0xF9E000, (uint)0x2000);
             int curSize = 0;
             while (curSize < fileSize)
             {
-                curSize += core.GetData(_memory, curSize, 512 - (curSize % 512));
+                curSize += _port.GetData(_memory, curSize, 512 - (curSize % 512));
             }
 
             // set the tail pointer equal to the head
@@ -685,8 +684,8 @@ namespace WindowsFormsApplication1
             tBuffer[0] = _memory[0x0FF2];
             tBuffer[1] = _memory[0x0FF3];
 
-            core.SendCommand(core.usbint_server_opcode_e.USBINT_SERVER_OPCODE_PUT, core.usbint_server_space_e.USBINT_SERVER_SPACE_SNES, core.usbint_server_flags_e.USBINT_SERVER_FLAGS_NONE, (uint)0xF9EFF0, (uint)0x2);
-            core.SendData(tBuffer, 2);
+            _port.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.SNES, usbint_server_flags_e.NONE, (uint)0xF9EFF0, (uint)0x2);
+            _port.SendData(tBuffer, 2);
 
             // update visual
             for (uint i = 0; i < 0x2000; i++)
@@ -717,6 +716,10 @@ namespace WindowsFormsApplication1
         Thread _clientThread, _serverThread;
         Server _server;
         Client _client;
+
+        // usb port
+        core _port = new core();
+
 
         private void buttonServer_Click(object sender, EventArgs e)
         {

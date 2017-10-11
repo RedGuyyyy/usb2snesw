@@ -1,4 +1,4 @@
-﻿namespace WindowsFormsApplication1
+﻿namespace usb2snes
 {
     partial class usb2snesnet
     {

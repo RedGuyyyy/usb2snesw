@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using usb2snes;
 
 namespace WindowsFormsApplication1
 {
@@ -16,7 +17,7 @@ namespace WindowsFormsApplication1
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new usb2snesnet());
+            Application.Run(new usb2snes.usb2snesnet());
         }
     }
 }

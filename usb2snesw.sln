@@ -3,19 +3,21 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26730.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snesw", "usb2snesw.csproj", "{B478EAC8-3FA4-46A3-B5D1-FB03E0DA63B5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snesfileviewer", "usb2snesfileviewer\usb2snesfileviewer.csproj", "{B478EAC8-3FA4-46A3-B5D1-FB03E0DA63B5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snescore", "usb2snescore\usb2snescore.csproj", "{73DA4FD4-4480-49DB-9C91-E649F5B3B3C6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snesnet", "usb2snesnet\usb2snesnet.csproj", "{FC28CF09-D8DF-435F-9F67-CEAF1F4B563F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snesviewer", "usb2snesviewer\usb2snesviewer.csproj", "{27BB8549-FDF3-40FA-9438-A1AFE387EA3E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snesmemoryviewer", "usb2snesmemoryviewer\usb2snesmemoryviewer.csproj", "{27BB8549-FDF3-40FA-9438-A1AFE387EA3E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Be.Windows.Forms.HexBox", "..\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\Be.Windows.Forms.HexBox.csproj", "{26C5F25F-B450-4CAF-AD8B-B8D11AE73457}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Be.Windows.Forms.HexBox", "Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\Be.Windows.Forms.HexBox.csproj", "{26C5F25F-B450-4CAF-AD8B-B8D11AE73457}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MutexManager", "MutexManager\MutexManager.csproj", "{CE119D2D-F9B6-4FCF-B527-40CAEAEF029C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snesbridge", "usb2snesbridge\usb2snesbridge.csproj", "{F6E5F498-BC1A-46F7-8DDA-3C5D3282357F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snes", "usb2snes\usb2snes.csproj", "{F6E5F498-BC1A-46F7-8DDA-3C5D3282357F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "usb2snescommon", "usb2snescommon\usb2snescommon.csproj", "{9777A964-67C3-4C26-807E-B3BBB5CAEED7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -79,6 +81,14 @@ Global
 		{F6E5F498-BC1A-46F7-8DDA-3C5D3282357F}.Release|Any CPU.ActiveCfg = Release|x86
 		{F6E5F498-BC1A-46F7-8DDA-3C5D3282357F}.Release|x86.ActiveCfg = Release|x86
 		{F6E5F498-BC1A-46F7-8DDA-3C5D3282357F}.Release|x86.Build.0 = Release|x86
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Debug|x86.Build.0 = Debug|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Release|x86.ActiveCfg = Release|Any CPU
+		{9777A964-67C3-4C26-807E-B3BBB5CAEED7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
