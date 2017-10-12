@@ -121,12 +121,27 @@ namespace usb2snes
 
                                 case OpcodeType.GetAddress:
                                     {
-                                        // loop through all addresses and perform the fewest commands necessary to get all data in the same order requested
+                                        // TODO: decide if we want to pack more optimally
                                         int totalSize = 0;
                                         bool sizeOperand = false;
+                                        // vector operands only support up to 8 tuples
+                                        Tuple<int, int>[] vOperands = (req.Operands.Count <= 16) ? new Tuple<int, int>[req.Operands.Count / 2] : null;
+                                        string nameOperand = "";
+                                        int operandNum = 0;
                                         foreach (var operand in req.Operands)
                                         {
-                                            if (sizeOperand) totalSize += int.Parse(operand, System.Globalization.NumberStyles.HexNumber);
+                                            if (sizeOperand)
+                                            {
+                                                int size = int.Parse(operand, System.Globalization.NumberStyles.HexNumber);
+                                                int name = int.Parse(nameOperand, System.Globalization.NumberStyles.HexNumber);
+                                                totalSize += size;
+                                                if (size > 255) vOperands = null;
+                                                else if (vOperands != null) vOperands[operandNum++] = Tuple.Create(name, size);
+                                            }
+                                            else
+                                            {
+                                                nameOperand = operand;
+                                            }
                                             sizeOperand = !sizeOperand;
                                         }
 
@@ -138,8 +153,14 @@ namespace usb2snes
 
                                             usbint_server_space_e space = (usbint_server_space_e)Enum.Parse(typeof(usbint_server_space_e), req.Space);
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
-                                            int size = int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
-                                            p.SendCommand(usbint_server_opcode_e.GET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
+
+                                            if (vOperands == null) p.SendCommand(usbint_server_opcode_e.GET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            else
+                                            {
+                                                i = req.Operands.Count - 2;
+                                                p.SendCommand(usbint_server_opcode_e.VGET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
+                                            }
                                             Byte[] tempData = new Byte[Constants.MaxMessageSize];
 
                                             int readSize = (size + 63) & ~63;
@@ -159,7 +180,7 @@ namespace usb2snes
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
                                                     try
                                                     {
-                                                        s.SendAsync(new ArraySegment<byte>(tempData, 0, toWriteSize), WebSocketMessageType.Binary, readByte == readSize, CancellationToken.None).Wait();
+                                                        s.SendAsync(new ArraySegment<byte>(tempData, 0, toWriteSize), WebSocketMessageType.Binary, readByte == readSize && (i + 2 >= req.Operands.Count), CancellationToken.None).Wait();
                                                     }
                                                     catch (Exception e)
                                                     {
@@ -173,7 +194,30 @@ namespace usb2snes
                                     }
                                 case OpcodeType.PutAddress:
                                     {
-                                        // TODO: add vector operations
+                                        // TODO: decide if we want to pack more optimally
+                                        // vector operands only support up to 8 tuples
+                                        int totalSize = 0;
+                                        bool sizeOperand = false;
+                                        Tuple<int, int>[] vOperands = (req.Operands.Count <= 16) ? new Tuple<int, int>[req.Operands.Count / 2] : null;
+                                        string nameOperand = "";
+                                        int operandNum = 0;
+                                        foreach (var operand in req.Operands)
+                                        {
+                                            if (sizeOperand)
+                                            {
+                                                int size = int.Parse(operand, System.Globalization.NumberStyles.HexNumber);
+                                                int name = int.Parse(nameOperand, System.Globalization.NumberStyles.HexNumber);
+                                                totalSize += size;
+                                                if (size > 255) vOperands = null;
+                                                else if (vOperands != null) vOperands[operandNum++] = Tuple.Create(name, size);
+                                            }
+                                            else
+                                            {
+                                                nameOperand = operand;
+                                            }
+                                            sizeOperand = !sizeOperand;
+                                        }
+
                                         for (int i = 0; i < req.Operands.Count; i += 2)
                                         {
                                             var name = req.Operands[i + 0];
@@ -181,8 +225,13 @@ namespace usb2snes
 
                                             usbint_server_space_e space = (usbint_server_space_e)Enum.Parse(typeof(usbint_server_space_e), req.Space);
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
-                                            int size = int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
-                                            p.SendCommand(usbint_server_opcode_e.PUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
+                                            if (vOperands == null) p.SendCommand(usbint_server_opcode_e.PUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            else
+                                            {
+                                                i = req.Operands.Count - 2;
+                                                p.SendCommand(usbint_server_opcode_e.VPUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
+                                            }
 
                                             // get data and write to USB
                                             WebSocketReceiveResult result;

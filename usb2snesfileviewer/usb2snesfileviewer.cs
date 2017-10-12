@@ -731,9 +731,14 @@ namespace usb2snes
                     }
                     else if (true)
                     {
-                        RequestType req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
+                        RequestType req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), 0x100.ToString("X"), 0xF10000.ToString("X"), 0x100.ToString("X"), 0xF20000.ToString("X"), 0x100.ToString("X") }) };
                         _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
-                        var rsp = GetResponse();
+                        bool dataEnd = false;
+                        while (!dataEnd)
+                        {
+                            var rsp = GetData();
+                            dataEnd = rsp.Item1;
+                        }
                         //_port.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
                         //_port.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.FILE, usbint_server_flags_e.NONE);
                         //_port.Disconnect();
