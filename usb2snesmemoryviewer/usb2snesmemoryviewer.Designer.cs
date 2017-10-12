@@ -116,8 +116,8 @@
             // 
             // hexBox
             // 
-            this.hexBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
-            | System.Windows.Forms.AnchorStyles.Left)
+            this.hexBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.hexBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.hexBox.ColumnInfoVisible = true;
@@ -173,7 +173,7 @@
             this.textBoxSize.TabIndex = 14;
             this.textBoxSize.TextChanged += new System.EventHandler(this.textBoxSize_TextChanged);
             // 
-            // usb2snesviewer
+            // usb2snesmemoryviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -189,7 +189,8 @@
             this.Controls.Add(this.buttonRefresh);
             this.Controls.Add(this.comboBoxPort);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
-            this.Name = "usb2snesviewer";
+            this.MaximizeBox = false;
+            this.Name = "usb2snesmemoryviewer";
             this.Text = "usb2snesviewer";
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();

@@ -65,6 +65,7 @@
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.bootToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.resetToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.listViewRemote = new System.Windows.Forms.ListView();
             this.buttonMkdir = new System.Windows.Forms.Button();
             this.buttonDelete = new System.Windows.Forms.Button();
@@ -87,7 +88,6 @@
             this.buttonTest = new System.Windows.Forms.Button();
             this.buttonSoftReset = new System.Windows.Forms.Button();
             this.buttonMenu = new System.Windows.Forms.Button();
-            this.menuToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -155,7 +155,7 @@
             this.resetToolStripMenuItem,
             this.menuToolStripMenuItem});
             this.contextMenuStripRemote.Name = "contextMenuStrip1";
-            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 236);
+            this.contextMenuStripRemote.Size = new System.Drawing.Size(155, 214);
             this.contextMenuStripRemote.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripRemote_Opening);
             // 
             // refreshToolStripMenuItem
@@ -234,6 +234,14 @@
             this.resetToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
             this.resetToolStripMenuItem.Text = "Reset";
             this.resetToolStripMenuItem.Click += new System.EventHandler(this.resetToolStripMenuItem_Click);
+            // 
+            // menuToolStripMenuItem
+            // 
+            this.menuToolStripMenuItem.Enabled = false;
+            this.menuToolStripMenuItem.Name = "menuToolStripMenuItem";
+            this.menuToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
+            this.menuToolStripMenuItem.Text = "Menu";
+            this.menuToolStripMenuItem.Click += new System.EventHandler(this.menuToolStripMenuItem_Click);
             // 
             // listViewRemote
             // 
@@ -463,15 +471,7 @@
             this.buttonMenu.UseVisualStyleBackColor = true;
             this.buttonMenu.Click += new System.EventHandler(this.buttonMenu_Click);
             // 
-            // menuToolStripMenuItem
-            // 
-            this.menuToolStripMenuItem.Enabled = false;
-            this.menuToolStripMenuItem.Name = "menuToolStripMenuItem";
-            this.menuToolStripMenuItem.Size = new System.Drawing.Size(154, 22);
-            this.menuToolStripMenuItem.Text = "Menu";
-            this.menuToolStripMenuItem.Click += new System.EventHandler(this.menuToolStripMenuItem_Click);
-            // 
-            // usb2snes
+            // usb2snesfileviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -496,7 +496,8 @@
             this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
             this.KeyPreview = true;
-            this.Name = "usb2snes";
+            this.MaximizeBox = false;
+            this.Name = "usb2snesfileviewer";
             this.Text = "usb2snes";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.usb2snes_FormClosed);
             this.Load += new System.EventHandler(this.usb2snes_Load);

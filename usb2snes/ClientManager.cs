@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using System.Threading;
 
 using usb2snes.utils;
+using usb2snes.Properties;
 
 namespace usb2snes
 {
@@ -69,6 +70,7 @@ namespace usb2snes
             public Process ProcessRef { get; set; }
             public int EnabledCount { get; set; }
             public int DisabledCount { get; set; }
+            public string Path { get; set; }
             //public ServerGroup(string name) { Name = name; }
         }
 
@@ -97,10 +99,15 @@ namespace usb2snes
             if (l.Count != 0) projectDict.Add("active clients", l);
 
             l = new List<ClientGroup>();
-            foreach (var p in new string[] { "fileViewer", "memoryViewer"})
+            foreach (var p in new string[] { "FileViewer", "MemoryViewer"})
             {
                 l.Add(new ClientGroup { Name = p, ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
             }
+            foreach (var p in Settings.Default.RegisteredAppList)
+            {
+                l.Add(new ClientGroup { Name = Path.GetFileName(p), Path = p, ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
+            }
+            l.Add(new ClientGroup { Name = "<Add Application>", ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
             projectDict.Add("clients", l);
         }
 
@@ -170,17 +177,18 @@ namespace usb2snes
 
         private int instance = 0;
 
-        private void serverGroupItem_Click(object sender, EventArgs e)
+        private void serverGroupItem_Click(object sender, MouseEventArgs e)
         {
             ToolStripMenuItem itemClicked = ((ToolStripMenuItem)sender);
             var targetServerGroup = itemClicked.Text;
             var targetProject = itemClicked.OwnerItem.Text;
+            //var me = (MouseEventArgs)e;
 
             // show application
 
             if (targetProject == "clients")
             {
-                if (targetServerGroup == "fileViewer")
+                if (targetServerGroup == "FileViewer")
                 {
                     var p = Process.Start("usb2snesfileviewer");
                     children.Add(p, instance.ToString() + ": " + targetServerGroup);
@@ -192,7 +200,7 @@ namespace usb2snes
                     //child.FormClosing += Child_FormClosing;
                     //child.Show();
                 }
-                else if (targetServerGroup == "memoryViewer")
+                else if (targetServerGroup == "MemoryViewer")
                 {
                     var p = Process.Start("usb2snesmemoryviewer");
                     children.Add(p, instance.ToString() + ": " + targetServerGroup);
@@ -203,6 +211,55 @@ namespace usb2snes
                     //children.Add(child, targetServerGroup);
                     //child.FormClosing += Child_FormClosing;
                     //child.Show();
+                }
+                else if (targetServerGroup == "<Add Application>")
+                {
+                    System.Windows.Forms.OpenFileDialog dlg = new OpenFileDialog();
+                    dlg.Title = "Executable to Register";
+                    dlg.Filter = "Exe File|*.exe"
+                                 + "|All Files|*.*";
+                    dlg.FileName = "";
+
+                    if (dlg.ShowDialog() != DialogResult.Cancel)
+                    {
+                        for (int i = 0; i < dlg.FileNames.Length; i++)
+                        {
+                            string fileName = dlg.FileNames[i];
+                            //string safeFileName = dlg.SafeFileNames[i];
+
+                            Settings.Default.RegisteredAppList.Add(fileName);
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (var client in projectDict["clients"])
+                    {
+                        if (targetServerGroup == client.Name)
+                        {
+                            if (e.Button == MouseButtons.Right)
+                            {
+                                var l = projectDict["clients"].ToList();
+                                l.Remove(client);
+                                projectDict["clients"] = l;
+                                Settings.Default.RegisteredAppList.Remove(client.Path);
+                            }
+                            else
+                            {
+                                var p = new Process();
+                                p.StartInfo.FileName = client.Path;
+                                p.StartInfo.WorkingDirectory = Path.GetDirectoryName(client.Path);
+                                p.StartInfo.UseShellExecute = false;
+                                p.StartInfo.CreateNoWindow = false;
+                                children.Add(p, instance.ToString() + ": " + targetServerGroup);
+                                instance++;
+                                p.EnableRaisingEvents = true;
+                                p.Exited += Child_FormClosing;
+                                p.Start();
+                            }
+                            break;
+                        }
+                    }
                 }
             }
             else if (targetProject == "active clients")
@@ -237,10 +294,10 @@ namespace usb2snes
         # region support methods
 
         private ToolStripMenuItem ToolStripMenuItemWithHandler(
-            string displayText, Process process, int enabledCount, int disabledCount, EventHandler eventHandler)
+            string displayText, Process process, int enabledCount, int disabledCount, MouseEventHandler eventHandler)
         {
             var item = new ToolStripMenuItem(displayText);
-            if (eventHandler != null) { item.Click += eventHandler; }
+            if (eventHandler != null) { item.MouseDown += eventHandler; }
 
             item.Image = null;
             //(enabledCount > 0 && disabledCount > 0) ? Properties.Resources.signal_yellow
@@ -257,7 +314,7 @@ namespace usb2snes
             return item;
         }
 
-        public ToolStripMenuItem ToolStripMenuItemWithHandler(string displayText, EventHandler eventHandler)
+        public ToolStripMenuItem ToolStripMenuItemWithHandler(string displayText, MouseEventHandler eventHandler)
         {
             return ToolStripMenuItemWithHandler(displayText, null, 0, 0, eventHandler);
         }

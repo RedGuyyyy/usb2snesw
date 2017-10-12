@@ -255,10 +255,10 @@ namespace usb2snes
         # region support methods
 
         private ToolStripMenuItem ToolStripMenuItemWithHandler(
-            string displayText, int enabledCount, int disabledCount, EventHandler eventHandler)
+            string displayText, int enabledCount, int disabledCount, MouseEventHandler eventHandler)
         {
             var item = new ToolStripMenuItem(displayText);
-            if (eventHandler != null) { item.Click += eventHandler; }
+            if (eventHandler != null) { item.MouseDown += eventHandler; }
 
             item.Image = (enabledCount > 0 && disabledCount > 0) ? Properties.Resources.signal_yellow
                          : (enabledCount > 0) ? Properties.Resources.signal_green
@@ -272,7 +272,7 @@ namespace usb2snes
             return item;
         }
 
-        public ToolStripMenuItem ToolStripMenuItemWithHandler(string displayText, EventHandler eventHandler)
+        public ToolStripMenuItem ToolStripMenuItemWithHandler(string displayText, MouseEventHandler eventHandler)
         {
             return ToolStripMenuItemWithHandler(displayText, 0, 0, eventHandler);
         }

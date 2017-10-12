@@ -8,6 +8,8 @@ using System.Net.WebSockets;
 using WindowsFormsApplication1;
 using System.Collections.Generic;
 
+using usb2snes.Properties;
+
 /*
  * ==============================================================
  * @ID       $Id: MainForm.cs 971 2010-09-30 16:09:30Z ww $
@@ -204,6 +206,9 @@ namespace usb2snes
             notifyIcon.Visible = false; // should remove lingering tray icon
             notifyIcon.Icon = null;
             base.ExitThreadCore();
+
+            // save settings
+            Settings.Default.Save();
         }
 
         # endregion generic code framework
