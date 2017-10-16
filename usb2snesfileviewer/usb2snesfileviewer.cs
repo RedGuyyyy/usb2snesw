@@ -21,6 +21,8 @@ using System.Net.WebSockets;
 using System.Web.Script.Serialization;
 using System.Threading;
 
+using System.Security;
+
 namespace usb2snes
 {
     public partial class usb2snesfileviewer : Form
@@ -729,7 +731,7 @@ namespace usb2snes
                             bootFlags = usbint_server_flags_e.NONE;
                         }
                     }
-                    else if (true)
+                    else if (false)
                     {
                         RequestType req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), 0x100.ToString("X"), 0xF10000.ToString("X"), 0x100.ToString("X"), 0xF20000.ToString("X"), 0x100.ToString("X") }) };
                         _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
@@ -748,34 +750,63 @@ namespace usb2snes
                         // test vector operations
                         //_port.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
 
-                        byte[] tBuffer = new byte[512];
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
                         int fileSize;
                         int curSize;
 
-                        /*
                         var r = new Random();
 
-                        for (int c = 0; c < 1000; c++)
+                        for (int c = 0; c < 0x7ffffffe; c++)
                         {
                             // NORESP=1
-                            for (int i = 0; i < r.Next(9); i++)
+                            for (int i = 0; i < 1 + r.Next(9); i++)
                             {
-                                fileSize = r.Next(255) + 1;
-                                _port.SendCommand(usbint_server_opcode_e.VGET, usbint_server_space_e.SNES, usbint_server_flags_e.64BDATA | usbint_server_flags_e.NORESP,
-                                    Tuple.Create(0xFFA000 + r.Next(0x5000), fileSize)); //, Tuple.Create(0xFFA200, 255)); //, Tuple.Create(3, 0xFFA010), Tuple.Create(1, 0xFFA020), Tuple.Create(1, 0xFFA030), Tuple.Create(5, 0xFFA040), Tuple.Create(1, 0xFFA050), Tuple.Create(1, 0xFFA060), Tuple.Create(1, 0xFFA070));
-                                curSize = 0;
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                for (int j = 0; j < 512; j++)
+                                RequestType req;
+                                r.NextBytes(tBuffer);
+
+                                var tuple = new List<string>();
+                                fileSize = 0;
+                                for (int j = 0; j < 1 + r.Next(8); j++)
                                 {
-                                    tBuffer[j] = Convert.ToByte(j & 0xFF);
+                                    tuple.Add((0xE40000 + j * 0x400 + r.Next(0x300)).ToString("X"));
+                                    int size = 1 + r.Next(255);
+                                    tuple.Add(size.ToString("X"));
+                                    fileSize += size;
                                 }
-                                int bytesToRead = ((fileSize + 63) & ~63);
-                                while (curSize < bytesToRead)
+
+                                // write data
+                                req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = tuple };
+                                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                                //Array.Clear(tBuffer, 0, tBuffer.Length);
+                                curSize = 0;
+
+                                while (curSize < fileSize)
                                 {
-                                    curSize += _port.GetData(tBuffer, (curSize % 64), bytesToRead - curSize);
+                                    int bytesToWrite = Math.Min(Constants.MaxMessageSize, fileSize - curSize);
+                                    curSize += bytesToWrite;
+                                    // need to limit the segment size to send correct amount
+                                    _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fileSize, CancellationToken.None).Wait();
+                                }
+
+                                req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = tuple };
+                                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                                bool dataEnd = false;
+                                while (!dataEnd)
+                                {
+                                    var rsp = GetData();
+                                    dataEnd = rsp.Item1;
+
+                                    for (int j = 0; j < rsp.Item2.Length; j++)
+                                    {
+                                        if (rsp.Item2[j] != tBuffer[j % tBuffer.Length])
+                                        {
+                                            throw new Exception("bad data[" + j + "]: " + rsp.Item2[j] + " != " + tBuffer[j % tBuffer.Length]);
+                                        }
+                                    }
                                 }
                             }
 
+                            /*
                             for (int i = 0; i < 0; i++)
                             {
                                 _port.SendCommand(usbint_server_opcode_e.VGET, usbint_server_space_e.SNES, usbint_server_flags_e.64BDATA | usbint_server_flags_e.NORESP,
@@ -879,11 +910,9 @@ namespace usb2snes
                                 string name = remoteDir + '/' + listViewRemote.SelectedItems[0].Text;
                                 _port.SendCommand(usbint_server_opcode_e.BOOT, usbint_server_space_e.FILE, (usbint_server_flags_e)bootFlags, name);
                             }
+                            */
                             
                         }
-                        */
-
-                        //_port.Disconnect();
 
                     }
                 }

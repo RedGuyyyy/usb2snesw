@@ -239,7 +239,7 @@ namespace usb2snes
                     case 6:  _regionBase = 0xF90500; _regionSize = 0x0000200; break;
                     case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
                     case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
-                    case 9:  _regionBase = 0x000000; _regionSize = 0x0004000; break;
+                    case 9:  _regionBase = 0x000000; _regionSize = 0x0007800; break;
                     case 10: _regionBase = 0x000000; _regionSize = 0x1000000; break;
                     case 11: _regionBase = 0x000000; _regionSize = 0x0000100; break;
                     default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
@@ -429,7 +429,7 @@ namespace usb2snes
             ////int fileSize = (int)core.SendCommand(core.e.GET, (_region == 9 ? core.e.MSU : core.e.SNES), core.e.NONE, (uint)_regionBase, (uint)_regionSize);
             RequestType req = new RequestType();
             req.Opcode = OpcodeType.GetAddress.ToString();
-            req.Space = "SNES";
+            req.Space = _region == 9 ? "MSU" : "SNES";
             req.Operands = new List<string>(new string[] { _regionBase.ToString("X"), _regionSize.ToString("X") });
             _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
             var rsp = GetResponse(_regionSize);

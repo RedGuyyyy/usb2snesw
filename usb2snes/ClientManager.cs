@@ -27,6 +27,17 @@ namespace usb2snes
             this.notifyIcon = notifyIcon;
         }
 
+        public void Close()
+        {
+            // convert to a list to avoid changing key (Process) while iterating
+            foreach (var p in children.ToList())
+            {
+                p.Key.CloseMainWindow();
+                p.Key.WaitForExit();
+            }
+            children.Clear();
+        }
+
         public bool IsDecorated { get; private set; }
 
         # region context menu creation

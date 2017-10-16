@@ -754,7 +754,7 @@ namespace usb2snes
             {
                 lock (port)
                 {
-                    port.Count--;
+                    if (port.Count > 0) port.Count--;
                     // don't disconnect because we may still have USB transactions inflight
                     //if (port.Count == 0) port.Port.Disconnect();
                 }
