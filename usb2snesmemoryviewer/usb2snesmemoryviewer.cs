@@ -146,8 +146,7 @@ namespace usb2snes
             comboBoxRegion.Items.Add("CPUREG");
             comboBoxRegion.Items.Add("MISC");
             comboBoxRegion.Items.Add("MSU");
-            comboBoxRegion.Items.Add("ROM");
-            comboBoxRegion.Items.Add("TEST");
+            comboBoxRegion.Items.Add("RAM_RANGE");
 
             try
             {
@@ -240,8 +239,7 @@ namespace usb2snes
                     case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
                     case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
                     case 9:  _regionBase = 0x000000; _regionSize = 0x0007800; break;
-                    case 10: _regionBase = 0x000000; _regionSize = 0x1000000; break;
-                    case 11: _regionBase = 0x000000; _regionSize = 0x0000100; break;
+                    case 10: try { _regionBase = Convert.ToInt32(textBoxBase.Text, 16); } catch (Exception x) { _regionBase = 0x0; }; try { _regionSize = Convert.ToInt32(textBoxSize.Text, 16); } catch (Exception x) { _regionSize = 0x100; } break;
                     default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
                 }
 
@@ -480,7 +478,7 @@ namespace usb2snes
 
         private void textBoxBase_TextChanged(object sender, EventArgs e)
         {
-            if (comboBoxRegion.SelectedItem.ToString() == "TEST") {
+            if (comboBoxRegion.SelectedItem.ToString() == "RAM_RANGE") {
                 try
                 {
                     _regionBase = Convert.ToInt32(textBoxBase.Text, 16);
@@ -492,7 +490,7 @@ namespace usb2snes
 
         private void textBoxSize_TextChanged(object sender, EventArgs e)
         {
-            if (comboBoxRegion.SelectedItem.ToString() == "TEST")
+            if (comboBoxRegion.SelectedItem.ToString() == "RAM_RANGE")
             {
                 _timer.Stop();
                 Monitor.Enter(_timerLock);
@@ -605,7 +603,11 @@ namespace usb2snes
         private void Connect()
         {
             //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait();
-            if (_ws.State != WebSocketState.None) _ws = new ClientWebSocket();
+            if (_ws.State != WebSocketState.None)
+            {
+                _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
+                _ws = new ClientWebSocket();
+            }
             _ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait();
         }
 

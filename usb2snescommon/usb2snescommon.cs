@@ -20,7 +20,7 @@ namespace usb2snes
         Attach,     // Request: Operands: [COM#],                                 NoResponse
 
         // Special
-        Info,       // Request: Operands: null,                                   Response: Result: [version#,versionString]
+        Info,       // Request: Operands: null,                                   Response: Result: [versionString, version#]
         Boot,       // Request: Operands: [filename],                             
         Menu,       // Request: Operands: null,                                   
         Reset,      // Request: Operands: null,                                   

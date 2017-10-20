@@ -34,5 +34,53 @@ namespace usb2snesfileviewer.Properties {
                 this["LocalDir"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SetStateDir {
+            get {
+                return ((string)(this["SetStateDir"]));
+            }
+            set {
+                this["SetStateDir"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string GetStateDir {
+            get {
+                return ((string)(this["GetStateDir"]));
+            }
+            set {
+                this["GetStateDir"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string PatchDir {
+            get {
+                return ((string)(this["PatchDir"]));
+            }
+            set {
+                this["PatchDir"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string TestDir {
+            get {
+                return ((string)(this["TestDir"]));
+            }
+            set {
+                this["TestDir"] = value;
+            }
+        }
     }
 }

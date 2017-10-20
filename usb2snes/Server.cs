@@ -46,8 +46,13 @@ namespace usb2snes
         /// </summary>
         private class Scheduler
         {
-            public Scheduler()
+            private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets;
+            private core _p = null;
+
+            public Scheduler(SortedDictionary<int, Tuple<WebSocket, PortAndCount>> sockets, core p)
             {
+                _sockets = sockets;
+                _p = p;
                 _thr = new Thread(this.Run);
                 _thr.Start();
             }
@@ -69,9 +74,7 @@ namespace usb2snes
                         var s = elem.Socket;
                         var req = elem.Request;
                         var ev = elem.Event;
-                        var p = elem.Port.Port;
 
-                        _socketHash[s.GetHashCode()] = s;
                         var socketOpcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
 
                         // convert flags
@@ -86,7 +89,7 @@ namespace usb2snes
                                 case OpcodeType.Boot:
                                     {
                                         usbint_server_opcode_e opcode = usbint_server_opcode_e.BOOT;
-                                        p.SendCommand(opcode, usbint_server_space_e.FILE, flags, req.Operands[0]);
+                                        _p.SendCommand(opcode, usbint_server_space_e.FILE, flags, req.Operands[0]);
                                         break;
                                     }
                                 case OpcodeType.Menu:
@@ -94,16 +97,15 @@ namespace usb2snes
                                     {
                                         usbint_server_opcode_e opcode = (socketOpcode == OpcodeType.Menu) ? usbint_server_opcode_e.MENU_RESET
                                                                       : usbint_server_opcode_e.RESET;
-                                        p.SendCommand(opcode, usbint_server_space_e.FILE, flags);
+                                        _p.SendCommand(opcode, usbint_server_space_e.FILE, flags);
                                         break;
                                     }
                                 case OpcodeType.Info:
                                     {
                                         usbint_server_opcode_e opcode = usbint_server_opcode_e.INFO;
-                                        var version = (string)p.SendCommand(opcode, usbint_server_space_e.SNES, flags);
+                                        var version = (List<string>)_p.SendCommand(opcode, usbint_server_space_e.SNES, flags);
                                         ResponseType rsp = new ResponseType();
-                                        rsp.Results = new List<string>();
-                                        rsp.Results.Add(version);
+                                        rsp.Results = version;
 
                                         try
                                         {
@@ -155,11 +157,11 @@ namespace usb2snes
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
                                             int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
 
-                                            if (vOperands == null) p.SendCommand(usbint_server_opcode_e.GET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            if (vOperands == null) _p.SendCommand(usbint_server_opcode_e.GET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
                                             else
                                             {
                                                 i = req.Operands.Count - 2;
-                                                p.SendCommand(usbint_server_opcode_e.VGET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
+                                                _p.SendCommand(usbint_server_opcode_e.VGET, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
                                             }
                                             Byte[] tempData = new Byte[Constants.MaxMessageSize];
 
@@ -172,7 +174,7 @@ namespace usb2snes
                                             {
                                                 int readOffset = readByte % Constants.MaxMessageSize;
                                                 int packetOffset = readByte % 64;
-                                                readByte += p.GetData(tempData, readOffset, 64 - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
+                                                readByte += _p.GetData(tempData, readOffset, 64 - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
 
                                                 // send data
                                                 if (readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize))
@@ -226,11 +228,11 @@ namespace usb2snes
                                             usbint_server_space_e space = (usbint_server_space_e)Enum.Parse(typeof(usbint_server_space_e), req.Space);
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
                                             int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
-                                            if (vOperands == null) p.SendCommand(usbint_server_opcode_e.PUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            if (vOperands == null) _p.SendCommand(usbint_server_opcode_e.PUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
                                             else
                                             {
                                                 i = req.Operands.Count - 2;
-                                                p.SendCommand(usbint_server_opcode_e.VPUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
+                                                _p.SendCommand(usbint_server_opcode_e.VPUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
                                             }
 
                                             // get data and write to USB
@@ -257,7 +259,7 @@ namespace usb2snes
                                                         // copies for now.  Would be better to work with array segments
                                                         Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
                                                         putCount += blockSize;
-                                                        p.SendData(receiveBuffer, blockSize);
+                                                        _p.SendData(receiveBuffer, blockSize);
                                                     }
                                                 }
                                                 else
@@ -269,11 +271,11 @@ namespace usb2snes
                                                     {
                                                         Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
                                                         putCount += blockSize;
-                                                        p.SendData(receiveBuffer, blockSize);
+                                                        _p.SendData(receiveBuffer, blockSize);
                                                     }
 
                                                     string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                                                    Disconnect(s, WebSocketCloseStatus.MessageTooBig, elem.Port, closeMessage);
+                                                    Disconnect(s, WebSocketCloseStatus.MessageTooBig, _sockets, closeMessage);
 
                                                     break;
                                                 }
@@ -287,7 +289,7 @@ namespace usb2snes
                                     {
                                         usbint_server_opcode_e opcode = usbint_server_opcode_e.LS;
                                         usbint_server_space_e space = usbint_server_space_e.FILE;
-                                        var list = (List<Tuple<int, string>>)p.SendCommand(opcode, space, flags, dir);
+                                        var list = (List<Tuple<int, string>>)_p.SendCommand(opcode, space, flags, dir);
                                         ResponseType rsp = new ResponseType();
                                         rsp.Results = new List<string>();
                                         foreach (var item in list)
@@ -332,7 +334,7 @@ namespace usb2snes
                                         {
                                             usbint_server_opcode_e opcode = usbint_server_opcode_e.GET;
                                             usbint_server_space_e space = usbint_server_space_e.FILE;
-                                            int size = (int)p.SendCommand(opcode, space, flags, name);
+                                            int size = (int)_p.SendCommand(opcode, space, flags, name);
                                             Byte[] tempData = new Byte[Constants.MaxMessageSize];
 
                                             int readSize = (size + 511) & ~511;
@@ -344,7 +346,7 @@ namespace usb2snes
                                             {
                                                 int readOffset = readByte % Constants.MaxMessageSize;
                                                 int packetOffset = readByte % 64;
-                                                readByte += p.GetData(tempData, readOffset, 64 - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
+                                                readByte += _p.GetData(tempData, readOffset, 64 - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
 
                                                 // send data
                                                 if (readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize))
@@ -373,7 +375,7 @@ namespace usb2snes
 
                                         usbint_server_space_e space = usbint_server_space_e.FILE;
                                         int size = int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
-                                        p.SendCommand(usbint_server_opcode_e.PUT, space, flags, name, (uint)size);
+                                        _p.SendCommand(usbint_server_opcode_e.PUT, space, flags, name, (uint)size);
 
                                         // get data and write to USB
                                         WebSocketReceiveResult result;
@@ -399,7 +401,7 @@ namespace usb2snes
                                                     // copies for now.  Would be better to work with array segments
                                                     Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
                                                     putCount += blockSize;
-                                                    p.SendData(receiveBuffer, blockSize);
+                                                    _p.SendData(receiveBuffer, blockSize);
                                                 }
                                             }
                                             else
@@ -411,11 +413,11 @@ namespace usb2snes
                                                 {
                                                     Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
                                                     putCount += blockSize;
-                                                    p.SendData(receiveBuffer, blockSize);
+                                                    _p.SendData(receiveBuffer, blockSize);
                                                 }
 
                                                 string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                                                Disconnect(s, WebSocketCloseStatus.MessageTooBig, elem.Port, closeMessage);
+                                                Disconnect(s, WebSocketCloseStatus.MessageTooBig, _sockets, closeMessage);
 
                                                 break;
                                             }
@@ -432,7 +434,7 @@ namespace usb2snes
 
                                             usbint_server_opcode_e opcode = usbint_server_opcode_e.MV;
                                             usbint_server_space_e space = usbint_server_space_e.FILE;
-                                            p.SendCommand(opcode, space, flags, name, newName);
+                                            _p.SendCommand(opcode, space, flags, name, newName);
                                         }
                                         break;
                                     }
@@ -443,7 +445,7 @@ namespace usb2snes
                                         {
                                             usbint_server_opcode_e opcode = (socketOpcode == OpcodeType.MakeDir) ? usbint_server_opcode_e.MKDIR : usbint_server_opcode_e.RM;
                                             usbint_server_space_e space = usbint_server_space_e.FILE;
-                                            p.SendCommand(opcode, space, flags, name);
+                                            _p.SendCommand(opcode, space, flags, name);
                                         }
                                         break;
                                     }
@@ -529,7 +531,7 @@ namespace usb2snes
                         if (context.Request.IsWebSocketRequest)
                         {
                             // start new thread for context
-                            var s = new SocketThread(context, _sockets, _h);
+                            var s = new SocketThread(context, _sockets);
                             _t.Add(new Thread(s.ProcessRequest));
                             _t.Last().Start();
                         }
@@ -550,17 +552,20 @@ namespace usb2snes
             /// </summary>
             public void Stop()
             {
-                // FIXME: this is messy and has some races to cleanup
-                foreach (var t in _sockets)
+                lock (_sockets)
                 {
-                    WebSocket s = t.Value.Item1;
-                    PortAndCount p = t.Value.Item2;
-                    Disconnect(s, WebSocketCloseStatus.NormalClosure, p, "");
-                }
-                foreach (var t in _sockets)
-                {
-                    PortAndCount p = t.Value.Item2;
-                    if (p != null) p.Sch.Stop();
+                    // FIXME: this is messy and has some races to cleanup
+                    foreach (var t in _sockets)
+                    {
+                        WebSocket s = t.Value.Item1;
+                        PortAndCount p = t.Value.Item2;
+                        Disconnect(s, WebSocketCloseStatus.NormalClosure, _sockets, "");
+                    }
+                    foreach (var t in _sockets)
+                    {
+                        PortAndCount p = t.Value.Item2;
+                        if (p != null) p.Sch.Stop();
+                    }
                 }
 
                 foreach (var t in _t)
@@ -577,11 +582,6 @@ namespace usb2snes
             /// </summary>
             private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets = new SortedDictionary<int, Tuple<WebSocket, PortAndCount>>();
 
-            /// <summary>
-            /// Tracks active com to port state mapping
-            /// </summary>
-            private CommunicationHash<string, PortAndCount> _h = new CommunicationHash<string, PortAndCount>();
-
             private HttpListener _l = new HttpListener();
             private List<Thread> _t = new List<Thread>();
 
@@ -594,13 +594,11 @@ namespace usb2snes
         private class SocketThread {
             HttpListenerContext _c;
             private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets;
-            private CommunicationHash<string, PortAndCount> _h;
 
-            public SocketThread(HttpListenerContext c, SortedDictionary<int, Tuple<WebSocket, PortAndCount>> s, CommunicationHash<string, PortAndCount> h)
+            public SocketThread(HttpListenerContext c, SortedDictionary<int, Tuple<WebSocket, PortAndCount>> s)
             {
                 _c = c;
                 _sockets = s;
-                _h = h;
             }
 
             public void ProcessRequest()
@@ -623,7 +621,10 @@ namespace usb2snes
                 var s = wsc.WebSocket;
                 JavaScriptSerializer serializer = new JavaScriptSerializer();
 
-                _sockets[s.GetHashCode()] = Tuple.Create<WebSocket, PortAndCount>(s, null);
+                lock (_sockets)
+                {
+                    _sockets[s.GetHashCode()] = Tuple.Create<WebSocket, PortAndCount>(s, null);
+                }
 
                 RequestType req = null;
                 while (s.State == System.Net.WebSockets.WebSocketState.Open)
@@ -637,7 +638,7 @@ namespace usb2snes
 
                         if (result.MessageType == WebSocketMessageType.Close)
                         {
-                            Disconnect(s, WebSocketCloseStatus.NormalClosure, port, string.Empty);
+                            Disconnect(s, WebSocketCloseStatus.NormalClosure, _sockets, string.Empty);
                         }
                         else if (result.MessageType == WebSocketMessageType.Text)
                         {
@@ -648,7 +649,7 @@ namespace usb2snes
                                 if (count >= Constants.MaxMessageSize)
                                 {
                                     string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                                    Disconnect(s, WebSocketCloseStatus.MessageTooBig, port, closeMessage);
+                                    Disconnect(s, WebSocketCloseStatus.MessageTooBig, _sockets, closeMessage);
                                     return;
                                 }
 
@@ -690,24 +691,29 @@ namespace usb2snes
                                 {
                                     if (c.Name == req.Operands[0])
                                     {
-                                        if (!_h.Exists(c.Name))
+                                        lock (_sockets)
                                         {
-                                            // add reference and connect
-                                            var p = new PortAndCount();
-                                            p.Count = 0;
-                                            p.Port = new core();
-                                            p.Sch = new Scheduler();
-                                            _h.Add(c.Name, p);
-                                        }
+                                            port = null;
+                                            foreach (var kv in _sockets)
+                                            {
+                                                if (kv.Value.Item2 != null && kv.Value.Item2.Port.PortName() == c.Name)
+                                                {
+                                                    port = kv.Value.Item2;
+                                                    break;
+                                                }
+                                            }
 
-                                        port = _h[c.Name];
-                                        // associate the port with the socket
-                                        _sockets[s.GetHashCode()] = Tuple.Create(s, port);
+                                            if (port == null)
+                                            {
+                                                // add reference and connect
+                                                port = new PortAndCount();
+                                                port.Port = new core();
+                                                port.Port.Connect(c.Name);
+                                                port.Sch = new Scheduler(_sockets, port.Port);
+                                            }
 
-                                        lock (port)
-                                        {
-                                            port.Count++;
-                                            if (port.Count == 1) port.Port.Connect(c.Name);
+                                            // associate the port with the socket
+                                            _sockets[s.GetHashCode()] = Tuple.Create(s, port);
                                         }
 
                                         break;
@@ -725,16 +731,17 @@ namespace usb2snes
                         }
                         else if (result.MessageType == WebSocketMessageType.Binary)
                         {
-                            Disconnect(s, WebSocketCloseStatus.InvalidMessageType, port, "Unexpected binary data");
+                            Disconnect(s, WebSocketCloseStatus.InvalidMessageType, _sockets, "Unexpected binary data");
                         }
                         else
                         {
-                            Disconnect(s, WebSocketCloseStatus.InvalidMessageType, port, "Cannot accept message");
+                            Disconnect(s, WebSocketCloseStatus.InvalidMessageType, _sockets, "Cannot accept message");
                         }
                     }
                     catch (Exception e)
                     {
                         // FIXME: handle exceptions
+                        Disconnect(s, WebSocketCloseStatus.InternalServerError, _sockets, "Exception: " + e.Message);
                     }
                 }
             }
@@ -744,19 +751,38 @@ namespace usb2snes
         private class PortAndCount
         {
             public int Count { get; set; }
-            public usb2snes.core Port { get; set; }
+            public core Port { get; set; }
             public Scheduler Sch { get; set; }
         }
 
-        static void Disconnect(WebSocket s, WebSocketCloseStatus status, PortAndCount port, string msg)
+        static void Disconnect(WebSocket s, WebSocketCloseStatus status, SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets, string msg)
         {
-            if (port != null)
+            lock (_sockets)
             {
-                lock (port)
+                if (_sockets.ContainsKey(s.GetHashCode()))
                 {
-                    if (port.Count > 0) port.Count--;
-                    // don't disconnect because we may still have USB transactions inflight
-                    //if (port.Count == 0) port.Port.Disconnect();
+                    var pS = _sockets[s.GetHashCode()].Item2;
+                    _sockets.Remove(s.GetHashCode());
+
+                    if (pS != null)
+                    {
+                        bool found = false;
+                        foreach (var kv in _sockets)
+                        {
+                            if (kv.Value.Item2 != null && kv.Value.Item2.Port.PortName() == pS.Port.PortName())
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+                        // disconnect port on last connection
+                        if (!found)
+                        {
+                            pS.Sch.Stop();
+                            pS.Port.Disconnect();
+                        }
+                        //s.CloseAsync(status, msg, CancellationToken.None);
+                    }
                 }
             }
         }
@@ -816,65 +842,6 @@ namespace usb2snes
                     stop = true;
                 }
             }
-        }
-
-        // thread-aware hash class
-        public class CommunicationHash<K, V>
-        {
-            private readonly SortedDictionary<K, V> hash = new SortedDictionary<K, V>();
-
-            public void Add(K k, V v)
-            {
-                lock (hash)
-                {
-                    hash.Add(k, v);
-                }
-            }
-
-            public void AddIfNotPresent(K k, V v)
-            {
-
-                lock (hash)
-                {
-                    while (hash.ContainsKey(k)) Monitor.Wait(hash);
-                    hash.Add(k, v);
-                }
-            }
-
-            public void Remove(K k)
-            {
-                lock (hash)
-                {
-                    hash.Remove(k);
-                    Monitor.PulseAll(hash);
-                }
-            }
-
-            public bool Exists(K k)
-            {
-                lock (hash)
-                {
-                    return hash.ContainsKey(k);
-                }
-            }
-
-            public int Count()
-            {
-                lock (hash)
-                {
-                    return hash.Count;
-                }
-            }
-
-            public void Stop()
-            {
-                lock (hash)
-                {
-                    Monitor.PulseAll(hash);
-                }
-            }
-
-            public V this[K k] { get { lock (hash) return hash[k]; } set { lock (hash) hash[k] = value; } }
         }
 
     }

@@ -248,7 +248,7 @@ namespace usb2snes
                     {
                         if (targetServerGroup == client.Name)
                         {
-                            if (e.Button == MouseButtons.Right)
+                            if (e.Button == MouseButtons.Right || !File.Exists(client.Path))
                             {
                                 var l = projectDict["clients"].ToList();
                                 l.Remove(client);

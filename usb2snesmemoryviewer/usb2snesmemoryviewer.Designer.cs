@@ -161,6 +161,7 @@
             this.textBoxBase.Name = "textBoxBase";
             this.textBoxBase.Size = new System.Drawing.Size(83, 20);
             this.textBoxBase.TabIndex = 13;
+            this.textBoxBase.Text = "0";
             this.textBoxBase.TextChanged += new System.EventHandler(this.textBoxBase_TextChanged);
             // 
             // textBoxSize
@@ -171,6 +172,7 @@
             this.textBoxSize.Name = "textBoxSize";
             this.textBoxSize.Size = new System.Drawing.Size(83, 20);
             this.textBoxSize.TabIndex = 14;
+            this.textBoxSize.Text = "100";
             this.textBoxSize.TextChanged += new System.EventHandler(this.textBoxSize_TextChanged);
             // 
             // usb2snesmemoryviewer

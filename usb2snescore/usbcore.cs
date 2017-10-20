@@ -40,6 +40,7 @@ namespace usb2snes {
         FILE = 0,
         SNES,
         MSU,
+        CONFIG,
     };
 
     public enum usbint_server_flags_e
@@ -281,8 +282,13 @@ namespace usb2snes {
             {
                 case usbint_server_opcode_e.INFO:
                     {
+                        List<string> sL = new List<string>();
                         var s = System.Text.Encoding.UTF8.GetString(tBuffer, 256 + 4, Array.IndexOf<byte>(tBuffer, 0, 256 + 4) - (256 + 4));
-                        ret = s;
+                        sL.Add(s);
+                        int v = (tBuffer[256] << 24) | (tBuffer[257] << 16) | (tBuffer[258] << 8) | (tBuffer[259] << 0);
+                        s = v.ToString("X");
+                        sL.Add(s);
+                        ret = sL;
                         break;
                     }
                 case usbint_server_opcode_e.LS:

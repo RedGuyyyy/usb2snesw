@@ -233,7 +233,11 @@ namespace usb2snes
                 foreach (var port in rsp.Results)
                     comboBoxPort.Items.Add(port);
 
-                if (comboBoxPort.Items.Count != 0) comboBoxPort.SelectedIndex = 0;
+                if (comboBoxPort.Items.Count != 0)
+                {
+                    comboBoxPort.SelectedIndex = -1;
+                    comboBoxPort.SelectedIndex = 0;
+                }
             }
             catch (Exception x)
             {
@@ -348,7 +352,6 @@ namespace usb2snes
                                 _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
 
                                 // read data
-                                int curSize = 0;
                                 toolStripProgressBar1.Value = 0;
                                 toolStripProgressBar1.Enabled = true;
                                 toolStripStatusLabel1.Text = "downloading: " + name;
@@ -547,9 +550,11 @@ namespace usb2snes
                     openFileDialog1.Filter = "IPS File|*.ips"
                                            + "|All Files|*.*";
                     openFileDialog1.FileName = "";
+                    openFileDialog1.InitialDirectory = Settings.Default.PatchDir;
 
                     if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
                     {
+                        Settings.Default.PatchDir = Path.GetDirectoryName(openFileDialog1.FileName);
                         for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
                         {
                             string fileName = openFileDialog1.FileNames[i];
@@ -582,10 +587,12 @@ namespace usb2snes
                     saveFileDialog1.Title = "State file to Save";
                     saveFileDialog1.Filter = "STATE File|*.ss0"
                                            + "|All Files|*.*";
+                    saveFileDialog1.InitialDirectory = Settings.Default.GetStateDir;
                     saveFileDialog1.FileName = "save.ss0";
 
                     if (saveFileDialog1.ShowDialog() != DialogResult.Cancel)
                     {
+                        Settings.Default.GetStateDir = Path.GetDirectoryName(saveFileDialog1.FileName);
                         FileStream fs = new FileStream(saveFileDialog1.FileName, FileMode.Create, FileAccess.Write);
 
                         int fileSize = 0x50000;
@@ -644,10 +651,11 @@ namespace usb2snes
                     openFileDialog1.Filter = "STATE File|*.ss0"
                                            + "|All Files|*.*";
                     openFileDialog1.FileName = "save.ss0";
+                    openFileDialog1.InitialDirectory = Settings.Default.SetStateDir;
 
                     if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
                     {
-
+                        Settings.Default.SetStateDir = Path.GetDirectoryName(openFileDialog1.FileName);
                         for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
                         {
                             string fileName = openFileDialog1.FileNames[i];
@@ -708,9 +716,11 @@ namespace usb2snes
                         openFileDialog1.Filter = "IPS File|*.ips"
                                                + "|All Files|*.*";
                         openFileDialog1.FileName = "";
+                        openFileDialog1.InitialDirectory = Settings.Default.TestDir;
 
                         if (openFileDialog1.ShowDialog() != DialogResult.Cancel)
                         {
+                            Settings.Default.TestDir = Path.GetDirectoryName(openFileDialog1.FileName);
                             // boot currently selected ROM
                             bootFlags = usbint_server_flags_e.SKIPRESET;
                             buttonBoot.PerformClick();
@@ -731,6 +741,12 @@ namespace usb2snes
                             bootFlags = usbint_server_flags_e.NONE;
                         }
                     }
+                    else if (true)
+                    {
+                        RequestType req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
+                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                        var rsp = GetResponse();
+                    }
                     else if (false)
                     {
                         RequestType req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), 0x100.ToString("X"), 0xF10000.ToString("X"), 0x100.ToString("X"), 0xF20000.ToString("X"), 0x100.ToString("X") }) };
@@ -741,14 +757,26 @@ namespace usb2snes
                             var rsp = GetData();
                             dataEnd = rsp.Item1;
                         }
-                        //_port.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
-                        //_port.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.FILE, usbint_server_flags_e.NONE);
-                        //_port.Disconnect();
+                    }
+                    else if (true)
+                    {
+                        // offset = 0xinvmask,data,regnum size = 0xvalue
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
+
+                        RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { 0x000100.ToString("X"), 0x01.ToString("X") }) };
+                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                        // dummy write
+                        _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait();
+
+                        req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { 0x000000.ToString("X"), 0x01.ToString("X") }) };
+                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                        // dummy write
+                        _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait();
+
                     }
                     else
                     {
                         // test vector operations
-                        //_port.Connect(((core.Port)comboBoxPort.SelectedItem).Name);
 
                         byte[] tBuffer = new byte[Constants.MaxMessageSize];
                         int fileSize;
