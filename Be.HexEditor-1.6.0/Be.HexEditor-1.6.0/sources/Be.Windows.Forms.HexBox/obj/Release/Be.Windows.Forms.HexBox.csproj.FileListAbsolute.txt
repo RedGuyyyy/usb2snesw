@@ -1,7 +1,0 @@
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\bin\Release\Be.Windows.Forms.HexBox.dll
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\obj\Release\Be.Windows.Forms.HexBox.csprojResolveAssemblyReference.cache
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\obj\Release\Be.Windows.Forms.HexBox.resources
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\obj\Release\Be.Windows.Forms.Properties.Resources.resources
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\obj\Release\Be.Windows.Forms.HexBox.csproj.GenerateResource.Cache
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\obj\Release\Be.Windows.Forms.HexBox.csproj.CoreCompileInputs.cache
-C:\Users\O\dev\Be.HexEditor-1.6.0\Be.HexEditor-1.6.0\sources\Be.Windows.Forms.HexBox\obj\Release\Be.Windows.Forms.HexBox.dll
