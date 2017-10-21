@@ -687,6 +687,7 @@ namespace usb2snes
 
                                 // set comport
                                 var d = core.GetDeviceList();
+                                bool found = false;
                                 foreach (var c in d)
                                 {
                                     if (c.Name == req.Operands[0])
@@ -715,9 +716,14 @@ namespace usb2snes
                                             // associate the port with the socket
                                             _sockets[s.GetHashCode()] = Tuple.Create(s, port);
                                         }
-
+                                        found = true;
                                         break;
                                     }
+                                }
+
+                                if (!found)
+                                {
+                                    Disconnect(s, WebSocketCloseStatus.EndpointUnavailable, _sockets, "Comport not available: " + req.Operands[0]);
                                 }
                             }
                             else
@@ -781,8 +787,9 @@ namespace usb2snes
                             pS.Sch.Stop();
                             pS.Port.Disconnect();
                         }
-                        //s.CloseAsync(status, msg, CancellationToken.None);
                     }
+
+                    s.CloseAsync(status, msg, CancellationToken.None);
                 }
             }
         }

@@ -741,7 +741,7 @@ namespace usb2snes
                             bootFlags = usbint_server_flags_e.NONE;
                         }
                     }
-                    else if (true)
+                    else if (false)
                     {
                         RequestType req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
                         _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
@@ -763,15 +763,24 @@ namespace usb2snes
                         // offset = 0xinvmask,data,regnum size = 0xvalue
                         byte[] tBuffer = new byte[Constants.MaxMessageSize];
 
-                        RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { 0x000100.ToString("X"), 0x01.ToString("X") }) };
-                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
-                        // dummy write
-                        _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait();
+                        foreach (var config in new int[] { 0x004101, 0x008902, 0x008103, 0x000004, 0x000107, 0x000100 }) {
+                            var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
+                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                            // dummy write
+                            _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait();
+                        }
 
-                        req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { 0x000000.ToString("X"), 0x01.ToString("X") }) };
-                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
-                        // dummy write
-                        _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait();
+                        foreach (var config in new int[] { 0x000001, 0x000000 })
+                        {
+                            var req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
+                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                            bool dataEnd = false;
+                            while (!dataEnd)
+                            {
+                                var rsp = GetData();
+                                dataEnd = rsp.Item1;
+                            }
+                        }
 
                     }
                     else
