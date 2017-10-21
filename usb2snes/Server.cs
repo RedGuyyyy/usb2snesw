@@ -46,8 +46,13 @@ namespace usb2snes
         /// </summary>
         private class Scheduler
         {
-            private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets;
+            private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets = null;
             private core _p = null;
+            private Thread _thr;
+            private CommunicationQueue<QueueElementType> _q = new CommunicationQueue<QueueElementType>();
+            private bool _stop = false;
+
+            public CommunicationQueue<QueueElementType> Queue() { return _q; }
 
             public Scheduler(SortedDictionary<int, Tuple<WebSocket, PortAndCount>> sockets, core p)
             {
@@ -453,29 +458,20 @@ namespace usb2snes
                         }
                         catch (Exception e)
                         {
-                            // assume all failures close sockets
-                            foreach (var socket in _socketHash)
+                            List<WebSocket> sL = new List<WebSocket>();
+                            lock (_sockets)
                             {
-                                try
+                                // assume all failures close sockets
+                                foreach (var socket in _sockets)
                                 {
-                                    var task = socket.Value.CloseAsync(WebSocketCloseStatus.InternalServerError, "USB failure: " + e.Message, CancellationToken.None);
-                                    // don't wait for the close to succeed.  causes deadlock?
+                                    if (_p.PortName() == socket.Value.Item2.Port.PortName())
+                                    {
+                                        sL.Add(socket.Value.Item1);
+                                    }
                                 }
-                                catch (Exception x)
-                                {
-                                    // ignore closing exceptions
-                                }
-                                //Disconnect(socket.Value, WebSocketCloseStatus.InternalServerError, elem.Port, "USB failure: " + e.Message);
                             }
-                            _socketHash.Clear();
 
-                            // reset USB state by generating new usb2snes core
-                            lock (elem.Port)
-                            {
-                                elem.Port.Count = 0;
-                                elem.Port.Port = new core();
-                                //elem.Port.Sch = new Scheduler();
-                            }
+                            foreach (var socket in sL) Disconnect(socket, WebSocketCloseStatus.InternalServerError, _sockets, "USB failure: " + e.Message);
 
                             // clear the queue - there are probably races here with disconnecting sockets and traffic they are generating.
                             _q.Clear();
@@ -498,13 +494,6 @@ namespace usb2snes
                 _thr.Join();
             }
 
-            public CommunicationQueue<QueueElementType> Queue() { return _q; }
-
-            private Thread _thr;
-            private CommunicationQueue<QueueElementType> _q = new CommunicationQueue<QueueElementType>();
-            private bool _stop = false;
-
-            private SortedDictionary<int, WebSocket> _socketHash = new SortedDictionary<int, WebSocket>();
         }
 
         /// <summary>
@@ -789,7 +778,7 @@ namespace usb2snes
                         }
                     }
 
-                    s.CloseAsync(status, msg, CancellationToken.None);
+                    s.CloseOutputAsync(status, msg, CancellationToken.None).Wait();
                 }
             }
         }

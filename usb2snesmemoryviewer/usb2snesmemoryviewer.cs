@@ -175,7 +175,7 @@ namespace usb2snes
         {
             Monitor.Enter(_timerLock);
             _timer.Stop();
-            _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait();
+            _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             //_timer.Dispose();
             ////core.Disconnect();
         }
@@ -198,7 +198,7 @@ namespace usb2snes
                     req.Opcode = OpcodeType.Attach.ToString();
                     req.Space = "SNES";
                     req.Operands = new List<string>(new string[] { comboBoxPort.SelectedItem.ToString() });
-                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
 
                     pictureConnected.Image = Resources.bullet_green;
                     pictureConnected.Refresh();
@@ -290,7 +290,7 @@ namespace usb2snes
                 RequestType req = new RequestType();
                 req.Opcode = OpcodeType.DeviceList.ToString();
                 req.Space = "SNES";
-                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
                 var rsp = GetResponse(0);
 
                 foreach (var port in rsp.Item1.Results)
@@ -370,7 +370,7 @@ namespace usb2snes
             //_timer.Enabled = false;
             toolStripStatusLabel1.Text = x.Message.ToString();
             ////core.Disconnect();
-            _ws.CloseAsync(WebSocketCloseStatus.InternalServerError, "Client exception", CancellationToken.None).Wait();
+            _ws.CloseAsync(WebSocketCloseStatus.InternalServerError, "Client exception", CancellationToken.None).Wait(3000);
             // reset socket state
             //_ws = new ClientWebSocket();
             pictureConnected.Image = Resources.bullet_red;
@@ -429,7 +429,7 @@ namespace usb2snes
             req.Opcode = OpcodeType.GetAddress.ToString();
             req.Space = _region == 9 ? "MSU" : "SNES";
             req.Operands = new List<string>(new string[] { _regionBase.ToString("X"), _regionSize.ToString("X") });
-            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait();
+            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
             var rsp = GetResponse(_regionSize);
             Array.Copy(rsp.Item2, _memory, _regionSize);
 
@@ -531,7 +531,7 @@ namespace usb2snes
         {
             Monitor.Enter(_timerLock);
             _timer.Stop();
-            _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait();
+            _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             pictureConnected.Image = Resources.bullet_red;
             pictureConnected.Refresh();
             Monitor.Exit(_timerLock);
@@ -545,12 +545,12 @@ namespace usb2snes
             JavaScriptSerializer serializer = new JavaScriptSerializer();
 
             var reqTask = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
-            Task.WaitAll(reqTask);
+            if (!reqTask.Wait(3000)) return Tuple.Create(rsp, new Byte[0]);
             var result = reqTask.Result;
 
             if (result.MessageType == WebSocketMessageType.Close)
             {
-                _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait();
+                _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000);
             }
             else if (result.MessageType == WebSocketMessageType.Text)
             {
@@ -561,12 +561,12 @@ namespace usb2snes
                     if (count >= 1024)
                     {
                         string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                        _ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait();
+                        _ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000);
                         return Tuple.Create(rsp, data);
                     }
 
                     var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), CancellationToken.None);
-                    Task.WaitAll(rspTask);
+                    if (!rspTask.Wait(3000)) return Tuple.Create(rsp, new Byte[0]);
                     result = rspTask.Result;
 
                     count += result.Count;
@@ -589,7 +589,7 @@ namespace usb2snes
                 while (result.EndOfMessage == false)
                 {
                     var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, 0, Constants.MaxMessageSize), CancellationToken.None);
-                    Task.WaitAll(rspTask);
+                    if (!rspTask.Wait(3000)) return Tuple.Create(rsp, new Byte[0]);
                     result = rspTask.Result;
 
                     Array.Copy(receiveBuffer, 0, data, count, result.Count);
@@ -602,13 +602,13 @@ namespace usb2snes
 
         private void Connect()
         {
-            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait();
+            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             if (_ws.State != WebSocketState.None)
             {
                 _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
                 _ws = new ClientWebSocket();
             }
-            _ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait();
+            _ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000);
         }
 
         CommunicationQueue<ByteChange> _queue = new CommunicationQueue<ByteChange>();
