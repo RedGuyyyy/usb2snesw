@@ -70,7 +70,7 @@ namespace usb2snes
                     listViewRemote.Clear();
 
                     RequestType req = new RequestType() { Opcode = OpcodeType.List.ToString(), Space = "SNES", Operands = new List<string>(new string[] { remoteDir }) };
-                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                     var rsp = GetResponse();
 
                     for (int i = 0; i < rsp.Results.Count; i += 2)
@@ -223,10 +223,10 @@ namespace usb2snes
                     _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
                     _ws = new ClientWebSocket();
                 }
-                _ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000);
+                if (!_ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                 RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
-                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 var rsp = GetResponse();
 
                 // get device list
@@ -255,7 +255,7 @@ namespace usb2snes
             if (comboBoxPort.SelectedIndex >= 0)
             {
                 RequestType req = new RequestType() { Opcode = OpcodeType.Attach.ToString(), Space = "SNES", Operands = new List<string>(new string[] { comboBoxPort.SelectedItem.ToString() }) };
-                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                 remoteDirPrev = "";
                 remoteDir = "";
@@ -288,7 +288,7 @@ namespace usb2snes
                             FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
 
                             RequestType req = new RequestType() { Opcode = OpcodeType.PutFile.ToString(), Space = "SNES", Operands = new List<string>(new string[] { remoteDir + '/' + safeFileName, fs.Length.ToString("X") }) };
-                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                             // write data
                             int blockSize = Constants.MaxMessageSize;
@@ -303,7 +303,7 @@ namespace usb2snes
                                 int bytesToWrite = fs.Read(tBuffer, 0, blockSize);
 
                                 curSize += bytesToWrite;
-                                _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize == fs.Length, CancellationToken.None).Wait(3000);
+                                if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize == fs.Length, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 //_port.SendData(tBuffer, tBuffer.Length);
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                             }
@@ -349,7 +349,7 @@ namespace usb2snes
                                 FileStream fs = new FileStream(localDir + @"\" + item.Text, FileMode.Create, FileAccess.Write);
 
                                 RequestType req = new RequestType() { Opcode = OpcodeType.GetFile.ToString(), Space = "SNES", Operands = new List<string>(new string[] { name }) };
-                                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                                 // read data
                                 toolStripProgressBar1.Value = 0;
@@ -412,7 +412,7 @@ namespace usb2snes
                             if (name.Length < 256)
                             {
                                 RequestType req = new RequestType() { Opcode = OpcodeType.Boot.ToString(), Space = "SNES", Operands = new List<string>(new string[] { name }), Flags = new List<string>(new string[] { bootFlags.ToString() }) };
-                                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 break; // only boot the first file
                             }
                         }
@@ -446,7 +446,7 @@ namespace usb2snes
                         if (name.Length < 256)
                         {
                             RequestType req = new RequestType() { Opcode = OpcodeType.MakeDir.ToString(), Space = "SNES", Operands = new List<string>(new string[] { name }) };
-                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                             RefreshListViewRemote();
                         }
                     }
@@ -479,7 +479,7 @@ namespace usb2snes
                         if (newName != "" && name.Length < 256 && newName.Length < 256 - 8)
                         {
                             RequestType req = new RequestType() { Opcode = OpcodeType.Rename.ToString(), Space = "SNES", Operands = new List<string>(new string[] { name, newName }) };
-                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         }
                     }
 
@@ -517,7 +517,7 @@ namespace usb2snes
                                 if (name.Length < 256)
                                 {
                                     RequestType req = new RequestType() { Opcode = OpcodeType.Remove.ToString(), Space = "SNES", Operands = new List<string>(new string[] { name }) };
-                                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                                    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 }
                             }
 
@@ -597,7 +597,7 @@ namespace usb2snes
 
                         int fileSize = 0x50000;
                         RequestType req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), fileSize.ToString("X") }) };
-                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                        if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                         // read data
                         byte[] tBuffer = new byte[512];
@@ -663,7 +663,7 @@ namespace usb2snes
 
                             FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
                             RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), fs.Length.ToString("X") }) };
-                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                             // write data
                             byte[] tBuffer = new byte[512];
@@ -676,7 +676,7 @@ namespace usb2snes
                             {
                                 int bytesToWrite = fs.Read(tBuffer, 0, 512);
                                 curSize += bytesToWrite;
-                                _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fs.Length, CancellationToken.None).Wait(3000);
+                                if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fs.Length, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                             }
                             toolStripStatusLabel1.Text = "idle";
@@ -744,13 +744,13 @@ namespace usb2snes
                     else if (false)
                     {
                         RequestType req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
-                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                        if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         var rsp = GetResponse();
                     }
                     else if (false)
                     {
                         RequestType req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), 0x100.ToString("X"), 0xF10000.ToString("X"), 0x100.ToString("X"), 0xF20000.ToString("X"), 0x100.ToString("X") }) };
-                        _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                        if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         bool dataEnd = false;
                         while (!dataEnd)
                         {
@@ -765,15 +765,15 @@ namespace usb2snes
 
                         foreach (var config in new int[] { 0x004101, 0x008902, 0x008103, 0x000004, 0x000107, 0x000100 }) {
                             var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
-                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                             // dummy write
-                            _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         }
 
                         foreach (var config in new int[] { 0x000001, 0x000000 })
                         {
                             var req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
-                            _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                             bool dataEnd = false;
                             while (!dataEnd)
                             {
@@ -813,7 +813,7 @@ namespace usb2snes
 
                                 // write data
                                 req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = tuple };
-                                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 //Array.Clear(tBuffer, 0, tBuffer.Length);
                                 curSize = 0;
 
@@ -822,11 +822,11 @@ namespace usb2snes
                                     int bytesToWrite = Math.Min(Constants.MaxMessageSize, fileSize - curSize);
                                     curSize += bytesToWrite;
                                     // need to limit the segment size to send correct amount
-                                    _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fileSize, CancellationToken.None).Wait(3000);
+                                    if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fileSize, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 }
 
                                 req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = tuple };
-                                _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                                 bool dataEnd = false;
                                 while (!dataEnd)
                                 {
@@ -982,7 +982,7 @@ namespace usb2snes
                                                           Operands = new List<string>(new string[] { patch.address.ToString("X"), patch.data.Count.ToString("X") }),
                                                           Flags = new List<string>(new string[] { (patchNum == 0 && i == 0) ? "CLRX" : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? "SETX" : "NONE" })
                                                           };
-                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                     // write data
                     Array.Clear(tBuffer, 0, tBuffer.Length);
@@ -999,7 +999,7 @@ namespace usb2snes
 
                         curSize += bytesToWrite;
                         // need to limit the segment size to send correct amount
-                        _ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= patch.data.Count, CancellationToken.None).Wait(3000);
+                        if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= patch.data.Count, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
 
                         toolStripProgressBar1.Value = 100 * curSize / patch.data.Count;
                     }
@@ -1393,7 +1393,7 @@ namespace usb2snes
                 if (connected)
                 {
                     RequestType req = new RequestType() { Opcode = OpcodeType.Reset.ToString(), Space = "SNES" };
-                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 }
             }
             catch (Exception x)
@@ -1411,7 +1411,7 @@ namespace usb2snes
                 if (connected)
                 {
                     RequestType req = new RequestType() { Opcode = OpcodeType.Menu.ToString(), Space = "SNES" };
-                    _ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000);
+                    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 }
             }
             catch (Exception x)
@@ -1435,7 +1435,7 @@ namespace usb2snes
 
             if (result.MessageType == WebSocketMessageType.Close)
             {
-                _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000);
+                if (!_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
             }
             else if (result.MessageType == WebSocketMessageType.Text)
             {
@@ -1450,13 +1450,13 @@ namespace usb2snes
                     if (count > Constants.MaxMessageSize)
                     {
                         string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                        _ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000);
+                        if (!_ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         return rsp;
                     }
 
                     count = 0;
                     var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), CancellationToken.None);
-                    if (!rspTask.Wait(3000)) return rsp;
+                    if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
                     result = rspTask.Result;
                     count += result.Count;
 
@@ -1475,7 +1475,7 @@ namespace usb2snes
             byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
 
             var t = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
-            if (!t.Wait(3000)) return Tuple.Create(true, new Byte[0]);
+            if (!t.Wait(3000)) throw new Exception("socket timeout");
             var result = t.Result;
 
             if (result.MessageType != WebSocketMessageType.Binary) throw new Exception("GetData: unexpected amount of data");
