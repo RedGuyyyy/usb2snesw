@@ -33,7 +33,7 @@ namespace usb2snes
             foreach (var p in children.ToList())
             {
                 p.Key.CloseMainWindow();
-                p.Key.WaitForExit();
+                p.Key.WaitForExit(3000);
             }
             children.Clear();
         }

@@ -758,7 +758,7 @@ namespace usb2snes
                             dataEnd = rsp.Item1;
                         }
                     }
-                    else if (true)
+                    else if (false)
                     {
                         // offset = 0xinvmask,data,regnum size = 0xvalue
                         byte[] tBuffer = new byte[Constants.MaxMessageSize];
@@ -803,6 +803,7 @@ namespace usb2snes
 
                                 var tuple = new List<string>();
                                 fileSize = 0;
+                                // FIXME: force 2
                                 for (int j = 0; j < 1 + r.Next(8); j++)
                                 {
                                     tuple.Add((0xE40000 + j * 0x400 + r.Next(0x300)).ToString("X"));

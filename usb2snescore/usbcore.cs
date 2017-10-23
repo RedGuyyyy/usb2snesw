@@ -196,6 +196,7 @@ namespace usb2snes {
                     case usbint_server_opcode_e.RESET:
                     case usbint_server_opcode_e.MENU_RESET:
                     case usbint_server_opcode_e.INFO:
+                    case usbint_server_opcode_e.STREAM:
                         break;
 
                     //case usbint_server_opcode_e.EXECUTE:
@@ -254,6 +255,7 @@ namespace usb2snes {
                             break;
                         }
                     // passthrough command
+                    case usbint_server_opcode_e.STREAM:
                     case usbint_server_opcode_e.RESET:
                     case usbint_server_opcode_e.MENU_RESET:
                     case usbint_server_opcode_e.INFO:
