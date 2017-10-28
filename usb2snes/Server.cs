@@ -151,9 +151,19 @@ namespace usb2snes
                                                 }
                                                 catch (Exception e)
                                                 {
-                                                    // TODO:
-                                                    // send disconnect/reset command (requires the FW to accept it)
-                                                    // read out remaining data (until timeout or flagged data?)
+                                                    _p.Reset();
+                                                    try
+                                                    {
+                                                        while (true)
+                                                        {
+                                                            _p.GetData(tempData, 0, 64);
+                                                        }
+                                                    }
+                                                    catch (Exception x)
+                                                    {
+                                                        // collect all data until timeout
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }

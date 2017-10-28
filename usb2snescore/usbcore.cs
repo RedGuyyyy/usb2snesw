@@ -133,6 +133,14 @@ namespace usb2snes {
             serialPort.Open();
         }
 
+        public void Reset()
+        {
+            bool dtr = serialPort.DtrEnable;
+            serialPort.DtrEnable = false;
+            System.Threading.Thread.Sleep(500);
+            serialPort.DtrEnable = dtr;
+        }
+
         public void Disconnect()
         {
             try { serialPort.DtrEnable = false; serialPort.Close(); } catch (Exception x) { serialPort = new SerialPort(); }
