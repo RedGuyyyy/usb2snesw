@@ -50,7 +50,8 @@ namespace usb2snes
         public List<string> Flags { get; set; }
         public List<string> Operands { get; set; }
 
-        public bool Serialize() { return Opcode == "PutAddress" || Opcode == "PutFile" || Opcode == "Fence"; }
+        public bool RequiresData() { return Opcode == "GetAddress" || Opcode == "GetFile" || Opcode == "List" || Opcode == "Info" || Opcode == "Stream"; }
+        public bool HasData() { return Opcode == "PutAddress" || Opcode == "PutFile"; }
     }
 
     /// <summary>

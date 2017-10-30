@@ -18,7 +18,9 @@ using System.Threading;
 using System.Net;
 using System.Net.Sockets;
 
-using System.Net.WebSockets;
+//using WebSocket4Net;
+//using System.Net.WebSockets;
+using WebSocketSharp;
 using System.Web.Script.Serialization;
 
 using usb2snes;
@@ -175,7 +177,8 @@ namespace usb2snes
         {
             Monitor.Enter(_timerLock);
             _timer.Stop();
-            _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
+            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
+            _ws.Close();
             //_timer.Dispose();
             ////core.Disconnect();
         }
@@ -198,7 +201,8 @@ namespace usb2snes
                     req.Opcode = OpcodeType.Attach.ToString();
                     req.Space = "SNES";
                     req.Operands = new List<string>(new string[] { comboBoxPort.SelectedItem.ToString() });
-                    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                    //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                    _ws.Send(serializer.Serialize(req));
 
                     pictureConnected.Image = Resources.bullet_green;
                     pictureConnected.Refresh();
@@ -287,13 +291,16 @@ namespace usb2snes
             try
             {
                 Connect();
-                RequestType req = new RequestType();
-                req.Opcode = OpcodeType.DeviceList.ToString();
-                req.Space = "SNES";
-                if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                var rsp = GetResponse(0);
+                RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
 
-                foreach (var port in rsp.Item1.Results)
+                //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                //var rsp = GetResponse(0);
+
+                _ws.Send(serializer.Serialize(req));
+                _ev.WaitOne();
+                _ev.Reset();
+
+                foreach (var port in _rsp.Results)
                 {
                     comboBoxPort.Items.Add(port);
                 }
@@ -370,7 +377,8 @@ namespace usb2snes
             //_timer.Enabled = false;
             toolStripStatusLabel1.Text = x.Message.ToString();
             ////core.Disconnect();
-            _ws.CloseAsync(WebSocketCloseStatus.InternalServerError, "Client exception", CancellationToken.None).Wait(3000);
+            //_ws.CloseAsync(WebSocketCloseStatus.InternalServerError, "Client exception", CancellationToken.None).Wait(3000);
+            _ws.Close();
             // reset socket state
             //_ws = new ClientWebSocket();
             pictureConnected.Image = Resources.bullet_red;
@@ -379,7 +387,7 @@ namespace usb2snes
 
         private void GetDataAndResetHead()
         {
-            if (_ws.State == WebSocketState.None) return;
+            if (_ws.ReadyState != WebSocketState.Open) return;
 /*
             if (_queue.Count() != 0)
             {
@@ -429,17 +437,13 @@ namespace usb2snes
             req.Opcode = OpcodeType.GetAddress.ToString();
             req.Space = _region == 9 ? "MSU" : "SNES";
             req.Operands = new List<string>(new string[] { _regionBase.ToString("X"), _regionSize.ToString("X") });
-            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-            var rsp = GetResponse(_regionSize);
-            Array.Copy(rsp.Item2, _memory, _regionSize);
+            //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+            _ws.Send(serializer.Serialize(req));
+            _ev.WaitOne();
+            _ev.Reset();
 
-            //int fileSize = _regionSize; // FIXME:
-            //int curSize = 0;
-            //while (curSize < fileSize)
-            //{
-                ////curSize += core.GetData(_memory, curSize, 512 - (curSize % 512));
-                //curSize += 0; // FIXME:
-            //}
+            //var rsp = GetResponse(_regionSize);
+            //Array.Copy(rsp.Item2, _memory, _regionSize);
 
             for (uint i = 0; i < _regionSize; i++)
             {
@@ -531,89 +535,147 @@ namespace usb2snes
         {
             Monitor.Enter(_timerLock);
             _timer.Stop();
-            _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
+            _ws.Close();
+            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             pictureConnected.Image = Resources.bullet_red;
             pictureConnected.Refresh();
             Monitor.Exit(_timerLock);
         }
 
-        Tuple<ResponseType, Byte[]> GetResponse(int size)
+        //Tuple<ResponseType, Byte[]> GetResponse(int size)
+        //{
+        //    ResponseType rsp = new ResponseType();
+        //    Byte[] data = new byte[size];
+        //    byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
+        //    JavaScriptSerializer serializer = new JavaScriptSerializer();
+
+        //    var reqTask = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
+        //    if (!reqTask.Wait(3000)) throw new Exception("socket timeout");
+        //    var result = reqTask.Result;
+
+        //    if (result.MessageType == WebSocketMessageType.Close)
+        //    {
+        //        if (!_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+        //    }
+        //    else if (result.MessageType == WebSocketMessageType.Text)
+        //    {
+        //        int count = result.Count;
+
+        //        while (result.EndOfMessage == false)
+        //        {
+        //            if (count >= 1024)
+        //            {
+        //                string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
+        //                if (!_ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+        //                return Tuple.Create(rsp, data);
+        //            }
+
+        //            var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), CancellationToken.None);
+        //            if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
+        //            result = rspTask.Result;
+
+        //            count += result.Count;
+        //        }
+
+        //        var messageString = Encoding.UTF8.GetString(receiveBuffer, 0, count);
+        //        //rsp = new ResponsePacketType();
+        //        rsp = serializer.Deserialize<ResponseType>(messageString);
+        //    }
+        //    else if (result.MessageType == WebSocketMessageType.Binary)
+        //    {
+        //        int count = 0;
+
+        //        // copy initial data
+        //        Array.Copy(receiveBuffer, 0, data, count, result.Count);
+
+        //        count += result.Count;
+
+        //        // handle binary response
+        //        while (result.EndOfMessage == false)
+        //        {
+        //            var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, 0, Constants.MaxMessageSize), CancellationToken.None);
+        //            if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
+        //            result = rspTask.Result;
+
+        //            Array.Copy(receiveBuffer, 0, data, count, result.Count);
+        //            count += result.Count;
+        //        }
+        //    }
+
+        //    return Tuple.Create(rsp, data);
+        //}
+
+        private void ws_Opened(object sender, EventArgs e)
         {
-            ResponseType rsp = new ResponseType();
-            Byte[] data = new byte[size];
-            byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
-            JavaScriptSerializer serializer = new JavaScriptSerializer();
+            _ev.Set();
+        }
 
-            var reqTask = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
-            if (!reqTask.Wait(3000)) throw new Exception("socket timeout");
-            var result = reqTask.Result;
-
-            if (result.MessageType == WebSocketMessageType.Close)
+        private void ws_MessageReceived(object sender, MessageEventArgs e)
+        {
+            if (e.Type == Opcode.Text)
             {
-                if (!_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                _rsp = serializer.Deserialize<ResponseType>(e.Data);
+                _ev.Set();
             }
-            else if (result.MessageType == WebSocketMessageType.Text)
+            else if (e.Type == Opcode.Binary)
             {
-                int count = result.Count;
+                Array.Copy(e.RawData, 0, _memory, _offset, e.RawData.Length);
 
-                while (result.EndOfMessage == false)
+                _offset += e.RawData.Length;
+                if (_offset >= _regionSize)
                 {
-                    if (count >= 1024)
-                    {
-                        string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                        if (!_ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                        return Tuple.Create(rsp, data);
-                    }
-
-                    var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), CancellationToken.None);
-                    if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
-                    result = rspTask.Result;
-
-                    count += result.Count;
-                }
-
-                var messageString = Encoding.UTF8.GetString(receiveBuffer, 0, count);
-                //rsp = new ResponsePacketType();
-                rsp = serializer.Deserialize<ResponseType>(messageString);
-            }
-            else if (result.MessageType == WebSocketMessageType.Binary)
-            {
-                int count = 0;
-
-                // copy initial data
-                Array.Copy(receiveBuffer, 0, data, count, result.Count);
-
-                count += result.Count;
-
-                // handle binary response
-                while (result.EndOfMessage == false)
-                {
-                    var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, 0, Constants.MaxMessageSize), CancellationToken.None);
-                    if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
-                    result = rspTask.Result;
-
-                    Array.Copy(receiveBuffer, 0, data, count, result.Count);
-                    count += result.Count;
+                    _offset = 0;
+                    _ev.Set();
                 }
             }
+        }
 
-            return Tuple.Create(rsp, data);
+        //private void ws_DataReceived(object sender, DataReceivedEventArgs e)
+        //{
+        //    Array.Copy(e.Data, _memory, _regionSize);
+        //    _ev.Set();
+        //}
+
+        private void ws_Closed(object sender, EventArgs e)
+        {
+            _ev.Set();
         }
 
         private void Connect()
         {
+            _offset = 0;
             //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
-            if (_ws.State != WebSocketState.None)
+            if (_ws != null && _ws.ReadyState == WebSocketState.Open)
             {
-                _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
-                _ws = new ClientWebSocket();
+                _ws.Close();
+                _ev.WaitOne();
+                _ev.Reset();
             }
-            if (!_ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+            _ws = new WebSocket("ws://localhost:8080/");
+            //_ws.Opened += new EventHandler(ws_Opened);
+            _ws.OnOpen += ws_Opened;
+            //_ws.DataReceived += new EventHandler<DataReceivedEventArgs>(ws_DataReceived);
+            _ws.OnMessage += ws_MessageReceived;
+            //_ws.MessageReceived += new EventHandler<MessageReceivedEventArgs>(ws_MessageReceived);
+            //_ws.Closed += new EventHandler(ws_Closed);
+            _ws.OnClose += ws_Closed;
+            //_ws.NoDelay = true;
+
+            _ws.Connect();
+            _ev.WaitOne();
+            _ev.Reset();
+            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
+            //_ws = new ClientWebSocket();
+            //if (!_ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
         }
 
         CommunicationQueue<ByteChange> _queue = new CommunicationQueue<ByteChange>();
-        ClientWebSocket _ws = new ClientWebSocket();
+        //ClientWebSocket _ws = new ClientWebSocket();
+        WebSocket _ws = new WebSocket("ws://localhost:8080/");
+        ResponseType _rsp = new ResponseType();
+        AutoResetEvent _ev = new AutoResetEvent(false);
         JavaScriptSerializer serializer = new JavaScriptSerializer();
+        int _offset = 0;
     }
 
 }

@@ -6,8 +6,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Script.Serialization;
-using System.Net.WebSockets;
+//using System.Net.WebSockets;
 using System.Net;
+
+using WebSocketSharp;
+using WebSocketSharp.Net;
+using WebSocketSharp.Server;
 
 using usb2snes;
 
@@ -16,30 +20,223 @@ namespace usb2snes
     public class Server
     {
         SocketServer _h;
-        private Thread _hT;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-        private class QueueElementType {
-            public WebSocket Socket { get; set; }
+        private class RequestQueueElementType {
             public RequestType Request { get; set; }
-            public AutoResetEvent Event { get; set; }
-            public PortAndCount Port { get; set; }
+
+            public ClientSocket Socket { get; set; }
+        }
+
+        private class ResponseQueueElementType
+        {
+            public ResponseType Response { get; set; }
+            public Byte[] Data { get; set; }
+
+            public bool Done { get; set; }
         }
 
         // main server
         public Server()
         {
-            _h = new SocketServer("http://localhost:8080/", _tokenSource.Token);
-            _hT = new Thread(_h.Start);
-            _hT.Start();
+            _h = new SocketServer();
+        }
+
+        public void Start()
+        {
+            _h.Start();
         }
 
         public void Stop()
         {
-            _tokenSource.Cancel();
             _h.Stop();
-            _hT.Abort();
-            _hT.Join();
+        }
+
+        /// <summary>
+        /// SocketServer handles new socket connections and spawns SocketThreads.
+        /// </summary>
+        private class SocketServer
+        {
+            /// <summary>
+            /// tracks the com port to scheduler mapping
+            /// </summary>
+            private SortedDictionary<string, Scheduler> _ports = new SortedDictionary<string, Scheduler>();
+
+            //private HttpListener _l = new HttpListener();
+            private WebSocketServer _wssv = new WebSocketServer("ws://localhost:8080");
+            private List<Thread> _t = new List<Thread>();
+
+            public SocketServer()
+            {
+                _wssv.AddWebSocketService<ClientSocket>("/", () => new ClientSocket(_ports));
+            }
+
+            public void Start()
+            {
+                _wssv.Start();
+            }
+
+            /// <summary>
+            /// Stop cleans up existing state.
+            /// </summary>
+            public void Stop()
+            {
+                foreach (var p in _ports) p.Value.Stop();
+                _wssv.Stop();
+            }
+
+        }
+
+        /// <summary>
+        /// Socket manages the socket connection and inserts new commands into the CommunicationQueue for the Scheduler to execute.
+        /// </summary>
+        private class ClientSocket : WebSocketBehavior
+        {
+            private SortedDictionary<string, Scheduler> _ports;
+            private string _portName = "";
+            private JavaScriptSerializer serializer = new JavaScriptSerializer();
+
+            public CommunicationQueue<ResponseQueueElementType> Queue { get; private set; }
+            public CommunicationQueue<Byte[]> DataQueue { get; private set; }
+            //public AutoResetEvent DataEvent { get; private set; }
+
+            public ClientSocket(SortedDictionary<string, Scheduler> ports)
+            {
+                _ports = ports;
+                Queue = new CommunicationQueue<ResponseQueueElementType>();
+                DataQueue = new CommunicationQueue<Byte[]>();
+                //DataEvent = new AutoResetEvent(false);
+            }
+
+            protected override void OnOpen()
+            {
+                base.OnOpen();
+            }
+
+            protected override void OnClose(CloseEventArgs e)
+            {
+                base.OnClose(e);
+            }
+
+            protected override void OnError(ErrorEventArgs e)
+            {
+                base.OnError(e);
+            }
+
+            protected override void OnMessage(MessageEventArgs e)
+            {
+                // parse message
+                if (e.Type == Opcode.Text)
+                {
+                    var messageString = e.Data;
+                    var req = new RequestType();
+                    req = serializer.Deserialize<RequestType>(messageString);
+
+                    var opcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
+                    if (opcode == OpcodeType.DeviceList)
+                    {
+                        ResponseType rsp = new ResponseType();
+                        rsp.Results = new List<string>();
+                        var d = core.GetDeviceList();
+                        foreach (var c in d) rsp.Results.Add(c.Name);
+
+                        Send(serializer.Serialize(rsp));
+                    }
+                    else if (opcode == OpcodeType.Attach)
+                    {
+                        // detach from existing comport if it exists
+                        lock (_ports)
+                        {
+                            if (_ports.ContainsKey(_portName)) _ports[_portName].Count--;
+                        }
+
+                        // setup comport if it doesn't already exist
+                        var d = core.GetDeviceList();
+                        foreach (var c in d)
+                        {
+                            if (c.Name == req.Operands[0])
+                            {
+                                // assign new name
+                                _portName = req.Operands[0];
+
+                                // test if new
+                                lock (_ports)
+                                {
+                                    if (!_ports.ContainsKey(_portName))
+                                    {
+                                        var s = new Scheduler(_portName);
+                                        _ports.Add(_portName, s);
+                                    }
+
+                                    _ports[_portName].Count++;
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lock (_ports)
+                        {
+                            var port = _ports[_portName];
+                            port.Queue.Enqueue(new RequestQueueElementType() { Request = req, Socket = this });
+                        }
+
+                        // if this is a data operation then wait until all data is sent back
+                        if (req.RequiresData())
+                        {
+                            bool done = false;
+                            bool first = true;
+                            do
+                            {
+                                var t = Queue.Dequeue();
+
+                                done = !t.Item1;
+                                if (!done)
+                                {
+                                    var elem = t.Item2;
+
+                                    if (opcode == OpcodeType.List || opcode == OpcodeType.Info || (opcode == OpcodeType.GetFile && first))
+                                    {
+                                        var rsp = elem.Response;
+                                        Send(serializer.Serialize(rsp));
+                                        first = false;
+                                    }
+                                    else
+                                    {
+                                        Send(elem.Data);
+                                    }
+
+                                    done = elem.Done;
+                                }
+
+
+                            } while (!done);
+                        }
+
+                    }
+
+                }
+                else if (e.Type == Opcode.Binary)
+                {
+                    // back pressure so the transfer isn't instantaneous.
+                    // FIXME: this should be a monitor call so we don't busy wait.
+                    //DataQueue.Available(4);
+                    //while (DataQueue.Count_NoLock() >= 4) { Thread.Sleep(1); }
+                    Byte[] data = (Byte[])e.RawData.Clone();
+                    DataQueue.Enqueue(data);
+                    //DataEvent.WaitOne();
+                    //DataEvent.Reset();
+                }
+                else if (e.Type == Opcode.Close)
+                {
+                    lock (_ports)
+                    {
+                        if (_ports.ContainsKey(_portName)) _ports[_portName].Count--;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -48,20 +245,19 @@ namespace usb2snes
         /// </summary>
         private class Scheduler
         {
-            private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets = null;
-            private core _p = null;
-            private Thread _thr;
-            private CommunicationQueue<QueueElementType> _q = new CommunicationQueue<QueueElementType>();
+            private core _p = new core();
+
             private bool _stop = false;
-            private CancellationToken _token;
+            private Thread _thr;
 
-            public CommunicationQueue<QueueElementType> Queue() { return _q; }
+            public CommunicationQueue<RequestQueueElementType> Queue { get; private set; }
+            public int Count { get; set; }
 
-            public Scheduler(SortedDictionary<int, Tuple<WebSocket, PortAndCount>> sockets, core p, CancellationToken t)
+            public Scheduler(string name)
             {
-                _token = t;
-                _sockets = sockets;
-                _p = p;
+                Queue = new CommunicationQueue<RequestQueueElementType>();
+                _p.Connect(name);
+
                 _thr = new Thread(this.Run);
                 _thr.Start();
             }
@@ -69,20 +265,19 @@ namespace usb2snes
             /// <summary>
             /// Run is the main operation thread.
             /// </summary>
-            async public void Run()
+            public void Run()
             {
                 JavaScriptSerializer serializer = new JavaScriptSerializer();
 
                 while (!_stop)
                 {
-                    var t = _q.Dequeue();
+                    var t = Queue.Dequeue();
 
                     if (t.Item1)
                     {
                         var elem = t.Item2;
-                        var s = elem.Socket;
                         var req = elem.Request;
-                        var ev = elem.Event;
+                        var socket = elem.Socket;
 
                         var socketOpcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
 
@@ -116,14 +311,7 @@ namespace usb2snes
                                         ResponseType rsp = new ResponseType();
                                         rsp.Results = version;
 
-                                        try
-                                        {
-                                            await s.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(rsp))), WebSocketMessageType.Text, true, _token);
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            // Allow socket failures
-                                        }
+                                        socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = true });
                                         break;
                                     }
                                 case OpcodeType.Stream:
@@ -143,28 +331,11 @@ namespace usb2snes
                                             // send data
                                             if (readByte == readSize)
                                             {
-                                                try
-                                                {
-                                                    _token.ThrowIfCancellationRequested();
-                                                    s.SendAsync(new ArraySegment<byte>(tempData, 0, 64), WebSocketMessageType.Binary, true, _token).Wait();
-                                                    readByte = 0;
-                                                }
-                                                catch (Exception e)
-                                                {
-                                                    _p.Reset();
-                                                    try
-                                                    {
-                                                        while (true)
-                                                        {
-                                                            _p.GetData(tempData, 0, 64);
-                                                        }
-                                                    }
-                                                    catch (Exception x)
-                                                    {
-                                                        // collect all data until timeout
-                                                        break;
-                                                    }
-                                                }
+                                                socket.Queue.Enqueue(new ResponseQueueElementType() { Data = tempData, Done = false });
+
+                                                // TODO: deal with disconnects
+                                                //_p.Reset();
+                                                //try { while (true) _p.GetData(tempData, 0, 64); } catch (Exception x) { break; }
                                             }
                                         }
 
@@ -228,17 +399,10 @@ namespace usb2snes
                                                 // send data
                                                 if (readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize))
                                                 {
+                                                    // NOTE: this only works when we read out an evently divisible amount into the buffer.
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
-                                                    try
-                                                    {
-                                                        _token.ThrowIfCancellationRequested();
-                                                        s.SendAsync(new ArraySegment<byte>(tempData, 0, toWriteSize), WebSocketMessageType.Binary, readByte == readSize && (i + 2 >= req.Operands.Count), _token).Wait(3000);
-                                                    }
-                                                    catch (Exception e)
-                                                    {
-                                                        // Allow socket failures
-                                                    }
                                                     writeByte += toWriteSize;
+                                                    socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
                                                 }
                                             }
                                         }
@@ -286,7 +450,6 @@ namespace usb2snes
                                             }
 
                                             // get data and write to USB
-                                            WebSocketReceiveResult result;
                                             int blockSize = 64;
                                             // simplify data receipt by allocating a full size buffer
                                             Byte[] receiveBuffer = new Byte[blockSize];
@@ -295,15 +458,14 @@ namespace usb2snes
                                             int putCount = 0;
                                             do
                                             {
-                                                _token.ThrowIfCancellationRequested();
-                                                result = await s.ReceiveAsync(new ArraySegment<Byte>(fileBuffer, getCount, size + blockSize - getCount), _token);
-                                                //Array.Copy(receiveBuffer, 0, fileBuffer, getCount, result.Count);
-                                                getCount += result.Count;
-
-                                                // if we have received all data then round up to the next 64B.  else send up to the current complete 64B
-                                                if (result.MessageType == WebSocketMessageType.Binary)
+                                                var d = socket.DataQueue.Dequeue();
+                                                if (d.Item1)
                                                 {
-                                                    int nextCount = result.EndOfMessage ? ((getCount + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
+                                                    Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
+                                                    getCount += d.Item2.Length;
+
+                                                    // if we have received all data then round up to the next 64B.  else send up to the current complete 64B
+                                                    int nextCount = (getCount >= totalSize) ? ((totalSize + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
                                                     // send data over USB
                                                     while (putCount < nextCount)
                                                     {
@@ -312,26 +474,9 @@ namespace usb2snes
                                                         putCount += blockSize;
                                                         _p.SendData(receiveBuffer, blockSize);
                                                     }
+                                                    //socket.DataEvent.Set();
                                                 }
-                                                else
-                                                {
-                                                    // complete USB operation with garbage data
-                                                    int nextCount = ((size + blockSize - 1) & ~(blockSize - 1));
-                                                    // send data over USB
-                                                    while (putCount < nextCount)
-                                                    {
-                                                        Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
-                                                        putCount += blockSize;
-                                                        _p.SendData(receiveBuffer, blockSize);
-                                                    }
-
-                                                    string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                                                    Disconnect(s, WebSocketCloseStatus.MessageTooBig, _sockets, closeMessage, _token);
-
-                                                    break;
-                                                }
-
-                                            } while (!result.EndOfMessage);
+                                            } while (putCount < totalSize);
                                         }
                                         break;
                                     }
@@ -347,37 +492,10 @@ namespace usb2snes
                                         {
                                             rsp.Results.Add(item.Item1.ToString());
                                             rsp.Results.Add(item.Item2);
-
-                                            if (Encoding.UTF8.GetBytes(serializer.Serialize(rsp)).Count() > Constants.MaxMessageSize)
-                                            {
-                                                rsp.Results.RemoveRange(rsp.Results.Count - 2, 2);
-
-                                                try
-                                                {
-                                                    _token.ThrowIfCancellationRequested();
-                                                    s.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(rsp))), WebSocketMessageType.Text, false, _token).Wait();
-                                                }
-                                                catch (Exception e)
-                                                {
-                                                    // Allow socket failures
-                                                }
-
-                                                // add back remaining as first set
-                                                rsp.Results.Clear();
-                                                rsp.Results.Add(item.Item1.ToString());
-                                                rsp.Results.Add(item.Item2);
-                                            }
                                         }
 
-                                        try
-                                        {
-                                            // send last
-                                            s.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(rsp))), WebSocketMessageType.Text, true, _token).Wait();
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            // Allow socket failures
-                                        }
+                                        // send entire list (or last)
+                                        socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = true });
                                     }
                                     break;
                                 case OpcodeType.GetFile:
@@ -388,6 +506,12 @@ namespace usb2snes
                                             usbint_server_space_e space = usbint_server_space_e.FILE;
                                             int size = (int)_p.SendCommand(opcode, space, flags, name);
                                             Byte[] tempData = new Byte[Constants.MaxMessageSize];
+
+                                            // send back response with size
+                                            ResponseType rsp = new ResponseType();
+                                            rsp.Results = new List<string>();
+                                            rsp.Results.Add(size.ToString("X"));
+                                            socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = false });
 
                                             int readSize = (size + 511) & ~511;
                                             int readByte = 0;
@@ -404,16 +528,8 @@ namespace usb2snes
                                                 if (readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize))
                                                 {
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
-                                                    try
-                                                    {
-                                                        if (s.State == WebSocketState.Open)
-                                                            s.SendAsync(new ArraySegment<byte>(tempData, 0, toWriteSize), WebSocketMessageType.Binary, readByte == readSize, _token).Wait();
-                                                    }
-                                                    catch (Exception e)
-                                                    {
-                                                        // Allow socket failures
-                                                    }
                                                     writeByte += toWriteSize;
+                                                    socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
                                                 }
                                             }
                                         }
@@ -430,7 +546,7 @@ namespace usb2snes
                                         _p.SendCommand(usbint_server_opcode_e.PUT, space, flags, name, (uint)size);
 
                                         // get data and write to USB
-                                        WebSocketReceiveResult result;
+                                        //WebSocketReceiveResult result;
                                         int blockSize = 512;
                                         // simplify data receipt by allocating a full size buffer
                                         Byte[] receiveBuffer = new Byte[blockSize];
@@ -439,14 +555,16 @@ namespace usb2snes
                                         int putCount = 0;
                                         do
                                         {
-                                            result = await s.ReceiveAsync(new ArraySegment<Byte>(fileBuffer, getCount, size + blockSize - getCount), _token);
-                                            //Array.Copy(receiveBuffer, 0, fileBuffer, getCount, result.Count);
-                                            getCount += result.Count;
+                                            //result = await s.ReceiveAsync(new ArraySegment<Byte>(fileBuffer, getCount, size + blockSize - getCount), _token);
+                                            //getCount += result.Count;
 
-                                            // if we have received all data then round up to the next 64B.  else send up to the current complete 64B
-                                            if (result.MessageType == WebSocketMessageType.Binary)
+                                            var d = socket.DataQueue.Dequeue();
+                                            if (d.Item1)
                                             {
-                                                int nextCount = result.EndOfMessage ? ((getCount + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
+                                                Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
+                                                getCount += d.Item2.Length;
+
+                                                int nextCount = (getCount >= size) ? ((size + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
                                                 // send data over USB
                                                 while (putCount < nextCount)
                                                 {
@@ -455,26 +573,9 @@ namespace usb2snes
                                                     putCount += blockSize;
                                                     _p.SendData(receiveBuffer, blockSize);
                                                 }
+                                                //socket.DataEvent.Set();
                                             }
-                                            else
-                                            {
-                                                // complete USB operation with garbage data
-                                                int nextCount = ((size + blockSize - 1) & ~(blockSize - 1));
-                                                // send data over USB
-                                                while (putCount < nextCount)
-                                                {
-                                                    Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
-                                                    putCount += blockSize;
-                                                    _p.SendData(receiveBuffer, blockSize);
-                                                }
-
-                                                string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                                                Disconnect(s, WebSocketCloseStatus.MessageTooBig, _sockets, closeMessage, _token);
-
-                                                break;
-                                            }
-
-                                        } while (!result.EndOfMessage);
+                                        } while (putCount < size);
                                     }
                                     break;
                                 case OpcodeType.Rename:
@@ -505,27 +606,8 @@ namespace usb2snes
                         }
                         catch (Exception e)
                         {
-                            List<WebSocket> sL = new List<WebSocket>();
-                            lock (_sockets)
-                            {
-                                // assume all failures close sockets
-                                foreach (var socket in _sockets)
-                                {
-                                    if (_p.PortName() == socket.Value.Item2.Port.PortName())
-                                    {
-                                        sL.Add(socket.Value.Item1);
-                                    }
-                                }
-                            }
-
-                            foreach (var socket in sL) Disconnect(socket, WebSocketCloseStatus.InternalServerError, _sockets, "USB failure: " + e.Message, _token);
-
-                            // clear the queue - there are probably races here with disconnecting sockets and traffic they are generating.
-                            _q.Clear();
+                            // TODO: close all sockets and clear queues
                         }
-
-                        // signal command completion if required
-                        if (ev != null) ev.Set();
                     }
                 }
             }
@@ -536,324 +618,15 @@ namespace usb2snes
             public void Stop()
             {
                 _stop = true;
-                _q.Stop();
-                _thr.Abort();
+                Queue.Stop();
+                //_thr.Abort();
                 _thr.Join();
             }
 
         }
 
-        /// <summary>
-        /// SocketServer handles new socket connections and spawns SocketThreads.
-        /// </summary>
-        private class SocketServer
-        {
-            /// <summary>
-            /// Tracks the socket to port state mapping
-            /// </summary>
-            private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets = new SortedDictionary<int, Tuple<WebSocket, PortAndCount>>();
-
-            private HttpListener _l = new HttpListener();
-            private List<Thread> _t = new List<Thread>();
-
-            private string _p;
-            private CancellationToken _token;
-
-            public SocketServer(string p, CancellationToken token)
-            {
-                _p = p;
-                _token = token;
-                _token.ThrowIfCancellationRequested();
-            }
-
-            public void Start()
-            {
-                _l.Prefixes.Clear();
-                _l.Prefixes.Add(_p);
-                _l.Start();
-
-                while (true)
-                {
-                    try
-                    {
-                        var context = _l.GetContext();
-                        if (context.Request.IsWebSocketRequest)
-                        {
-                            // start new thread for context
-                            var s = new SocketThread(context, _sockets, _token);
-                            _t.Add(new Thread(s.ProcessRequest));
-                            _t.Last().Start();
-                        }
-                        else
-                        {
-                            context.Response.StatusCode = 400;
-                            context.Response.Close();
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                    }
-                }
-            }
-
-            /// <summary>
-            /// Stop cleans up existing state.
-            /// </summary>
-            public void Stop()
-            {
-                List<Tuple<WebSocket, PortAndCount>> sL = new List<Tuple<WebSocket, PortAndCount>>();
-
-                // FIXME: this is messy and has some races to cleanup
-                foreach (var t in _sockets)
-                {
-                    WebSocket s = t.Value.Item1;
-                    PortAndCount p = t.Value.Item2;
-                    sL.Add(Tuple.Create(s, p));
-                }
-
-                foreach (var socket in sL)
-                {
-                    var s = socket.Item1;
-                    var p = socket.Item2;
-                    Disconnect(s, WebSocketCloseStatus.NormalClosure, _sockets, "", _token);
-
-                    if (p != null) p.Sch.Stop();
-                }
-
-                foreach (var t in _t)
-                {
-                    // The socket disconnect will cause the thread to exit and we should join back up here
-                    t.Join();
-                }
-
-                _l.Close();
-            }
-
-        }
-
-        /// <summary>
-        /// SocketThread manages the socket connection and inserts new commands into the CommunicationQueue for the Scheduler to execute.
-        /// </summary>
-        private class SocketThread {
-            HttpListenerContext _c;
-            private SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets;
-            private CancellationToken _token;
-
-            public SocketThread(HttpListenerContext c, SortedDictionary<int, Tuple<WebSocket, PortAndCount>> s, CancellationToken t)
-            {
-                _c = c;
-                _sockets = s;
-                _token = t;
-                _token.ThrowIfCancellationRequested();
-            }
-
-            public void ProcessRequest()
-            {
-                WebSocketContext wsc = null;
-
-                try
-                {
-                    var t = _c.AcceptWebSocketAsync(subProtocol: null);
-                    t.Wait();
-                    wsc = t.Result;
-                }
-                catch (Exception e)
-                {
-                    _c.Response.StatusCode = 500;
-                    _c.Response.Close();
-                }
-
-                byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
-                var s = wsc.WebSocket;
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
-
-                lock (_sockets)
-                {
-                    _sockets[s.GetHashCode()] = Tuple.Create<WebSocket, PortAndCount>(s, null);
-                }
-
-                RequestType req = null;
-                while (s.State == System.Net.WebSockets.WebSocketState.Open)
-                {
-                    try
-                    {
-                        _token.ThrowIfCancellationRequested();
-                        var t = s.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), _token);
-                        t.Wait();
-                        WebSocketReceiveResult result = t.Result; 
-                        var port = _sockets[s.GetHashCode()].Item2;
-
-                        if (result.MessageType == WebSocketMessageType.Close)
-                        {
-                            Disconnect(s, WebSocketCloseStatus.NormalClosure, _sockets, string.Empty, _token);
-                        }
-                        else if (result.MessageType == WebSocketMessageType.Text)
-                        {
-                            int count = result.Count;
-
-                            while (result.EndOfMessage == false)
-                            {
-                                if (count >= Constants.MaxMessageSize)
-                                {
-                                    string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-                                    Disconnect(s, WebSocketCloseStatus.MessageTooBig, _sockets, closeMessage, _token);
-                                    return;
-                                }
-
-                                _token.ThrowIfCancellationRequested();
-                                t = s.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), _token);
-                                t.Wait();
-                                result = t.Result;
-                                count += result.Count;
-                            }
-
-                            var messageString = Encoding.UTF8.GetString(receiveBuffer, 0, count);
-                            req = new RequestType();
-                            req = serializer.Deserialize<RequestType>(messageString);
-
-                            // event for handling serialization
-                            AutoResetEvent ev = null;
-
-                            var opcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
-                            if (opcode == OpcodeType.DeviceList)
-                            {
-                                ResponseType rsp = new ResponseType();
-                                rsp.Results = new List<string>();
-                                var d = core.GetDeviceList();
-                                foreach (var c in d) rsp.Results.Add(c.Name);
-                                try
-                                {
-                                    _token.ThrowIfCancellationRequested();
-                                    s.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(rsp))), WebSocketMessageType.Text, true, _token).Wait();
-                                }
-                                catch (Exception e)
-                                {
-                                    // Allow socket failures
-                                }
-                            }
-                            else if (opcode == OpcodeType.Attach)
-                            {
-
-                                // set comport
-                                var d = core.GetDeviceList();
-                                bool found = false;
-                                foreach (var c in d)
-                                {
-                                    if (c.Name == req.Operands[0])
-                                    {
-                                        lock (_sockets)
-                                        {
-                                            port = null;
-                                            foreach (var kv in _sockets)
-                                            {
-                                                if (kv.Value.Item2 != null && kv.Value.Item2.Port.PortName() == c.Name)
-                                                {
-                                                    port = kv.Value.Item2;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (port == null)
-                                            {
-                                                // add reference and connect
-                                                port = new PortAndCount();
-                                                port.Port = new core();
-                                                port.Port.Connect(c.Name);
-                                                port.Sch = new Scheduler(_sockets, port.Port, _token);
-                                            }
-
-                                            // associate the port with the socket
-                                            _sockets[s.GetHashCode()] = Tuple.Create(s, port);
-                                        }
-                                        found = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!found)
-                                {
-                                    Disconnect(s, WebSocketCloseStatus.EndpointUnavailable, _sockets, "Comport not available: " + req.Operands[0], _token);
-                                }
-                            }
-                            else
-                            {
-                                if (req.Serialize()) ev = new AutoResetEvent(false);
-                                port.Sch.Queue().Enqueue(new QueueElementType() { Request = req, Event = ev, Port = port, Socket = s });
-                            }
-
-                            // stall until signalled by scheduler
-                            if (ev != null) ev.WaitOne();
-                        }
-                        else if (result.MessageType == WebSocketMessageType.Binary)
-                        {
-                            Disconnect(s, WebSocketCloseStatus.InvalidMessageType, _sockets, "Unexpected binary data", _token);
-                        }
-                        else
-                        {
-                            Disconnect(s, WebSocketCloseStatus.InvalidMessageType, _sockets, "Cannot accept message", _token);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        // FIXME: handle exceptions
-                        Disconnect(s, WebSocketCloseStatus.InternalServerError, _sockets, "Exception: " + e.Message, _token);
-                    }
-                }
-            }
-
-        }
-
-        private class PortAndCount
-        {
-            public int Count { get; set; }
-            public core Port { get; set; }
-            public Scheduler Sch { get; set; }
-            public CancellationToken Token { get; set; }
-        }
-
-        static void Disconnect(WebSocket s, WebSocketCloseStatus status, SortedDictionary<int, Tuple<WebSocket, PortAndCount>> _sockets, string msg, CancellationToken token)
-        {
-            lock (_sockets)
-            {
-                if (_sockets.ContainsKey(s.GetHashCode()))
-                {
-                    var pS = _sockets[s.GetHashCode()].Item2;
-                    _sockets.Remove(s.GetHashCode());
-
-                    if (pS != null)
-                    {
-                        bool found = false;
-                        foreach (var kv in _sockets)
-                        {
-                            if (kv.Value.Item2 != null && kv.Value.Item2.Port.PortName() == pS.Port.PortName())
-                            {
-                                found = true;
-                                break;
-                            }
-                        }
-                        // disconnect port on last connection
-                        if (!found)
-                        {
-                            pS.Sch.Stop();
-                            pS.Port.Disconnect();
-                        }
-                    }
-
-                    try
-                    {
-                        token.ThrowIfCancellationRequested();
-                        s.CloseAsync(status, msg, token).Wait();
-                    }
-                    catch (Exception e)
-                    {
-                        // cancellation
-                    }
-                }
-            }
-        }
-
         // thread-aware queue class
-        private class CommunicationQueue<T>
+        public class CommunicationQueue<T>
         {
             private readonly Queue<T> queue = new Queue<T>();
             private bool stop = false;
@@ -862,8 +635,9 @@ namespace usb2snes
             {
                 lock (queue)
                 {
+                    //if (_size != 0 && queue.Count >= _size && !stop) Monitor.Wait(queue);
                     queue.Enqueue(item);
-                    if (queue.Count == 1) Monitor.PulseAll(queue);
+                    if (queue.Count >= 1) Monitor.PulseAll(queue);
                 }
             }
 
@@ -878,8 +652,17 @@ namespace usb2snes
                     {
                         f = true;
                         t = queue.Dequeue();
+                        //if (_size != 0 && queue.Count < _size) Monitor.PulseAll(queue);
                     }
                     return Tuple.Create(f, t);
+                }
+            }
+
+            public void Available(int count)
+            {
+                lock (queue)
+                {
+                    while (queue.Count >= count && !stop) { Monitor.Wait(queue); }
                 }
             }
 
@@ -889,6 +672,11 @@ namespace usb2snes
                 {
                     queue.Clear();
                 }
+            }
+
+            public int Count_NoLock()
+            {
+                return queue.Count;
             }
 
             public int Count()
@@ -903,8 +691,8 @@ namespace usb2snes
             {
                 lock (queue)
                 {
-                    Monitor.PulseAll(queue);
                     stop = true;
+                    Monitor.PulseAll(queue);
                 }
             }
         }

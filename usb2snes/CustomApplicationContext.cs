@@ -61,7 +61,6 @@ namespace usb2snes
     public class CustomApplicationContext : ApplicationContext
     {
         // Icon graphic from http://prothemedesign.com/circular-icons/
-        private static readonly string IconFileName = "route.ico";
         private static readonly string DefaultTooltip = "Route HOST entries via context menu";
         private readonly HostManager hostManager;
         private readonly ClientManager clientManager;
@@ -81,6 +80,7 @@ namespace usb2snes
             clientManager.BuildClientAssociations();
 
             server = new Server();
+            server.Start();
 		}
 
         private void ContextMenuStrip_Opening(object sender, System.ComponentModel.CancelEventArgs e)
@@ -164,7 +164,7 @@ namespace usb2snes
             notifyIcon = new NotifyIcon(components)
                              {
                                  ContextMenuStrip = new ContextMenuStrip(),
-                                 Icon = new Icon(IconFileName),
+                                 Icon = Properties.Resources.route,
                                  Text = DefaultTooltip,
                                  Visible = true
                              };
