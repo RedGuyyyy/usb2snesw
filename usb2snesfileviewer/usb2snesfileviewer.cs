@@ -37,8 +37,12 @@ namespace usb2snes
         Byte[] _data = null;
         AutoResetEvent _ev = new AutoResetEvent(false);
         AutoResetEvent _evClient = new AutoResetEvent(true);
+        ManualResetEvent _term = new ManualResetEvent(false);
         JavaScriptSerializer serializer = new JavaScriptSerializer();
         private usbint_server_flags_e bootFlags = usbint_server_flags_e.NONE;
+
+        WaitHandle[] _clientWaitHandles = new WaitHandle[2];
+        WaitHandle[] _socketWaitHandles = new WaitHandle[2];
 
         public usb2snesfileviewer()
         {
@@ -46,6 +50,17 @@ namespace usb2snes
             //PopulateTreeViewLocal();
             listViewRemote.ListViewItemSorter = new Sorter();
             listViewLocal.ListViewItemSorter = new Sorter();
+
+            _clientWaitHandles[0] = _evClient;
+            _clientWaitHandles[1] = _term;
+
+            _socketWaitHandles[0] = _ev;
+            _socketWaitHandles[1] = _term;
+        }
+
+        ~usb2snesfileviewer()
+        {
+            _term.Set();
         }
 
         private void GetDirectories(DirectoryInfo[] subDirs, TreeNode root)
@@ -233,7 +248,8 @@ namespace usb2snes
 
         private void ws_Closed(object sender, EventArgs e)
         {
-            SetSocket();
+            _ev.Set();
+            _evClient.Set();
         }
 
         /// <summary>
@@ -252,6 +268,8 @@ namespace usb2snes
 
             try
             {
+                _ev.Reset();
+                _evClient.Set();
                 // reconnect if unconnected or in bad state
                 if (_ws != null && _ws.ReadyState == WebSocketState.Open)
                 {
@@ -768,12 +786,14 @@ namespace usb2snes
         /// <param name="e"></param>
         private void buttonTest_Click(object sender, EventArgs e)
         {
+            return;
+
             try
             {
                 if (connected)
                 {
 
-                    if (true)
+                    if (false)
                     {
                         openFileDialog1.Title = "RAM IPS file to load";
                         openFileDialog1.Filter = "IPS File|*.ips"
@@ -855,68 +875,76 @@ namespace usb2snes
                     //    }
 
                     //}
-                    //else
-                    //{
-                    //    // test vector operations
+                    else
+                    {
+                        // test vector operations
 
-                    //    byte[] tBuffer = new byte[Constants.MaxMessageSize];
-                    //    int fileSize;
-                    //    int curSize;
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
+                        int fileSize;
+                        int curSize;
 
-                    //    var r = new Random();
+                        var r = new Random();
 
-                    //    for (int c = 0; c < 0x7ffffffe; c++)
-                    //    {
-                    //        // NORESP=1
-                    //        for (int i = 0; i < 1 + r.Next(9); i++)
-                    //        {
-                    //            RequestType req;
-                    //            r.NextBytes(tBuffer);
+                        for (int c = 0; c < 0x7ffffffe; c++)
+                        {
+                            // NORESP=1
+                            for (int i = 0; i < 1 + r.Next(9); i++)
+                            {
+                                RequestType req;
+                                r.NextBytes(tBuffer);
 
-                    //            var tuple = new List<string>();
-                    //            fileSize = 0;
-                    //            // FIXME: force 2
-                    //            for (int j = 0; j < 1 + r.Next(8); j++)
-                    //            {
-                    //                tuple.Add((0xE40000 + j * 0x400 + r.Next(0x300)).ToString("X"));
-                    //                int size = 1 + r.Next(255);
-                    //                tuple.Add(size.ToString("X"));
-                    //                fileSize += size;
-                    //            }
+                                var tuple = new List<string>();
+                                fileSize = 0;
+                                // FIXME: force 2
+                                for (int j = 0; j < 1 + r.Next(8); j++)
+                                {
+                                    tuple.Add((0xE40000 + j * 0x400 + r.Next(0x300)).ToString("X"));
+                                    int size = 1 + r.Next(255);
+                                    tuple.Add(size.ToString("X"));
+                                    fileSize += size;
+                                }
 
-                    //            // write data
-                    //            req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = tuple };
-                    //            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    //            //Array.Clear(tBuffer, 0, tBuffer.Length);
-                    //            curSize = 0;
+                                // write data
+                                req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = tuple };
+                                //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                                _ws.Send(serializer.Serialize(req));
 
-                    //            while (curSize < fileSize)
-                    //            {
-                    //                int bytesToWrite = Math.Min(Constants.MaxMessageSize, fileSize - curSize);
-                    //                curSize += bytesToWrite;
-                    //                // need to limit the segment size to send correct amount
-                    //                if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fileSize, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    //            }
+                                //Array.Clear(tBuffer, 0, tBuffer.Length);
+                                curSize = 0;
 
-                    //            req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = tuple };
-                    //            if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    //            bool dataEnd = false;
-                    //            while (!dataEnd)
-                    //            {
-                    //                var rsp = GetData();
-                    //                dataEnd = rsp.Item1;
+                                while (curSize < fileSize)
+                                {
+                                    int bytesToWrite = Math.Min(Constants.MaxMessageSize, fileSize - curSize);
+                                    curSize += bytesToWrite;
+                                    // need to limit the segment size to send correct amount
+                                    //if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fileSize, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                                    _ws.Send(new ArraySegment<byte>(tBuffer, 0, bytesToWrite).ToArray());
+                                }
 
-                    //                for (int j = 0; j < rsp.Item2.Length; j++)
-                    //                {
-                    //                    if (rsp.Item2[j] != tBuffer[j % tBuffer.Length])
-                    //                    {
-                    //                        throw new Exception("bad data[" + j + "]: " + rsp.Item2[j] + " != " + tBuffer[j % tBuffer.Length]);
-                    //                    }
-                    //                }
-                    //            }
-                    //        }                            
-                    //    }
-                    //}
+                                req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = tuple };
+                                //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                                _ws.Send(serializer.Serialize(req));
+                                SetClient();
+                                curSize = 0;
+                                while (curSize < fileSize)
+                                {
+                                    WaitSocket();
+                                    //var rsp = GetData();
+                                    //dataEnd = rsp.Item1;
+
+                                    for (int j = 0; j < _data.Length; j++)
+                                    {
+                                        if (_data[j] != tBuffer[j % tBuffer.Length])
+                                        {
+                                            throw new Exception("bad data[" + j + "]: " + _data[j] + " != " + tBuffer[j % tBuffer.Length]);
+                                        }
+                                    }
+                                    curSize += _data.Length;
+                                    SetClient();
+                                }
+                            }
+                        }
+                    }
 
                 }
             }
@@ -1393,68 +1421,6 @@ namespace usb2snes
 
         }
 
-        //ResponseType GetResponse()
-        //{
-        //    ResponseType rsp = new ResponseType();
-        //    byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
-        //    JavaScriptSerializer serializer = new JavaScriptSerializer();
-
-        //    var reqTask = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
-        //    if (!reqTask.Wait(3000)) return rsp;
-        //    var result = reqTask.Result;
-
-        //    if (result.MessageType == WebSocketMessageType.Close)
-        //    {
-        //        if (!_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-        //    }
-        //    else if (result.MessageType == WebSocketMessageType.Text)
-        //    {
-        //        int count = result.Count;
-
-        //        var messageString = Encoding.UTF8.GetString(receiveBuffer, 0, count);
-        //        //rsp = new ResponsePacketType();
-        //        rsp = serializer.Deserialize<ResponseType>(messageString);
-
-        //        while (result.EndOfMessage == false)
-        //        {
-        //            if (count > Constants.MaxMessageSize)
-        //            {
-        //                string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-        //                if (!_ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-        //                return rsp;
-        //            }
-
-        //            count = 0;
-        //            var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), CancellationToken.None);
-        //            if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
-        //            result = rspTask.Result;
-        //            count += result.Count;
-
-        //            messageString = Encoding.UTF8.GetString(receiveBuffer, 0, count);
-        //            var r = serializer.Deserialize<ResponseType>(messageString);
-        //            rsp.Results.AddRange(r.Results);
-        //        }
-
-        //    }
-
-        //    return rsp;
-        //}
-
-        //Tuple<bool, Byte[]> GetData()
-        //{
-        //    byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
-
-        //    var t = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
-        //    if (!t.Wait(3000)) throw new Exception("socket timeout");
-        //    var result = t.Result;
-
-        //    if (result.MessageType != WebSocketMessageType.Binary) throw new Exception("GetData: unexpected amount of data");
-
-        //    Array.Resize(ref receiveBuffer, result.Count);
-
-        //    return Tuple.Create(result.EndOfMessage, receiveBuffer);
-        //}
-
         void SetClient()
         {
             _evClient.Set();
@@ -1462,7 +1428,8 @@ namespace usb2snes
 
         void WaitClient()
         {
-            _evClient.WaitOne();
+            //_evClient.WaitOne();
+            WaitHandle.WaitAny(_clientWaitHandles);
             _evClient.Reset();
         }
 
@@ -1473,7 +1440,8 @@ namespace usb2snes
 
         void WaitSocket()
         {
-            _ev.WaitOne();
+            //_ev.WaitOne();
+            WaitHandle.WaitAny(_socketWaitHandles);
             _ev.Reset();
         }
 

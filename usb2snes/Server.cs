@@ -20,7 +20,7 @@ namespace usb2snes
     public class Server
     {
         SocketServer _h;
-        CancellationTokenSource _tokenSource = new CancellationTokenSource();
+        Thread _t;
 
         private class RequestQueueElementType {
             public RequestType Request { get; set; }
@@ -44,12 +44,15 @@ namespace usb2snes
 
         public void Start()
         {
-            _h.Start();
+            // create a separate thread for the socket server so UI calls don't slow it down
+            _t = new Thread(_h.Start);
+            _t.Start();
         }
 
         public void Stop()
         {
             _h.Stop();
+            _t.Join();
         }
 
         /// <summary>
@@ -61,19 +64,22 @@ namespace usb2snes
             /// tracks the com port to scheduler mapping
             /// </summary>
             private SortedDictionary<string, Scheduler> _ports = new SortedDictionary<string, Scheduler>();
+            AutoResetEvent _ev = new AutoResetEvent(false);
 
             //private HttpListener _l = new HttpListener();
-            private WebSocketServer _wssv = new WebSocketServer("ws://localhost:8080");
-            private List<Thread> _t = new List<Thread>();
+            //private List<Thread> _t = new List<Thread>();
 
             public SocketServer()
             {
-                _wssv.AddWebSocketService<ClientSocket>("/", () => new ClientSocket(_ports));
             }
 
             public void Start()
             {
+                WebSocketServer _wssv = new WebSocketServer("ws://localhost:8080");
+                _wssv.AddWebSocketService<ClientSocket>("/", () => new ClientSocket(_ports));
                 _wssv.Start();
+                _ev.WaitOne();
+                _wssv.Stop();
             }
 
             /// <summary>
@@ -81,8 +87,21 @@ namespace usb2snes
             /// </summary>
             public void Stop()
             {
-                foreach (var p in _ports) p.Value.Stop();
-                _wssv.Stop();
+                lock (_ports)
+                {
+                    foreach (var p in _ports)
+                    {
+                        lock (p.Value.Clients)
+                        {
+                            foreach (var c in p.Value.Clients)
+                            {
+                                c.Value.Context.WebSocket.Close();
+                            }
+                        }
+                        p.Value.Stop();
+                    }
+                }
+                _ev.Set();
             }
 
         }
@@ -141,13 +160,16 @@ namespace usb2snes
                         foreach (var c in d) rsp.Results.Add(c.Name);
 
                         Send(serializer.Serialize(rsp));
+                        //SendAsync(serializer.Serialize(rsp), a => { });
                     }
                     else if (opcode == OpcodeType.Attach)
                     {
                         // detach from existing comport if it exists
                         lock (_ports)
                         {
-                            if (_ports.ContainsKey(_portName)) _ports[_portName].Count--;
+                            if (_ports.ContainsKey(_portName))
+                                lock (_ports[_portName].Clients)
+                                    _ports[_portName].Clients.Remove(GetHashCode());
                         }
 
                         // setup comport if it doesn't already exist
@@ -164,11 +186,20 @@ namespace usb2snes
                                 {
                                     if (!_ports.ContainsKey(_portName))
                                     {
-                                        var s = new Scheduler(_portName);
-                                        _ports.Add(_portName, s);
+                                        try
+                                        {
+                                            var s = new Scheduler(_portName, _ports);
+                                            _ports.Add(_portName, s);
+                                        }
+                                        catch (Exception x)
+                                        {
+                                            // close the socket if there is a failure
+                                            Context.WebSocket.Close();
+                                            return;
+                                        }
                                     }
 
-                                    _ports[_portName].Count++;
+                                    lock (_ports[_portName].Clients) lock (_ports[_portName].Clients) _ports[_portName].Clients.Add(GetHashCode(), this);
                                 }
 
                                 break;
@@ -179,6 +210,12 @@ namespace usb2snes
                     {
                         lock (_ports)
                         {
+                            if (!_ports.ContainsKey(_portName))
+                            {
+                                // if port doesn't exist, close it.
+                                Context.WebSocket.Close();
+                                return;
+                            }
                             var port = _ports[_portName];
                             port.Queue.Enqueue(new RequestQueueElementType() { Request = req, Socket = this });
                         }
@@ -200,12 +237,14 @@ namespace usb2snes
                                     if (opcode == OpcodeType.List || opcode == OpcodeType.Info || (opcode == OpcodeType.GetFile && first))
                                     {
                                         var rsp = elem.Response;
+                                        //SendAsync(serializer.Serialize(rsp), a => { });
                                         Send(serializer.Serialize(rsp));
                                         first = false;
                                     }
                                     else
                                     {
-                                        Send(elem.Data);
+                                        Send((Byte[])elem.Data.Clone());
+                                        //SendAsync((Byte[])elem.Data.Clone(), a => { });
                                     }
 
                                     done = elem.Done;
@@ -233,7 +272,9 @@ namespace usb2snes
                 {
                     lock (_ports)
                     {
-                        if (_ports.ContainsKey(_portName)) _ports[_portName].Count--;
+                        if (_ports.ContainsKey(_portName))
+                            lock (_ports[_portName].Clients)
+                                _ports[_portName].Clients.Remove(GetHashCode());
                     }
                 }
             }
@@ -246,17 +287,34 @@ namespace usb2snes
         private class Scheduler
         {
             private core _p = new core();
+            private SortedDictionary<string, Scheduler> _ports;
 
             private bool _stop = false;
             private Thread _thr;
 
             public CommunicationQueue<RequestQueueElementType> Queue { get; private set; }
-            public int Count { get; set; }
+            public Dictionary<int, ClientSocket> Clients { get; set; }
 
-            public Scheduler(string name)
+            public Scheduler(string name, SortedDictionary<string, Scheduler> ports)
             {
                 Queue = new CommunicationQueue<RequestQueueElementType>();
+                Clients = new Dictionary<int, ClientSocket>();
                 _p.Connect(name);
+                _p.Reset();
+                Byte[] buffer = new Byte[64];
+                // read out any remaining data
+                var timeout = _p.serialPort.ReadTimeout;
+                try {
+                    _p.serialPort.ReadTimeout = 50;
+                    _p.serialPort.WriteTimeout = 50;
+                    while (true) _p.GetData(buffer, 0, 64);
+                } catch (Exception e) { } 
+                finally
+                {
+                    _p.serialPort.ReadTimeout = timeout;
+                    _p.serialPort.WriteTimeout = timeout;
+                }
+                _ports = ports;
 
                 _thr = new Thread(this.Run);
                 _thr.Start();
@@ -377,27 +435,38 @@ namespace usb2snes
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
                                             int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
 
-                                            if (vOperands == null) _p.SendCommand(usbint_server_opcode_e.GET, space, /*usbint_server_flags_e.NORESP*/usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            // FIXME: problem with large transfers and 64B???
+                                            if (vOperands == null)
+                                            {
+                                                flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
+                                                _p.SendCommand(usbint_server_opcode_e.GET, space, flags, address, (uint)size);
+                                            }
                                             else
                                             {
+                                                flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
                                                 i = req.Operands.Count - 2;
-                                                _p.SendCommand(usbint_server_opcode_e.VGET, space, /*usbint_server_flags_e.NORESP*/usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
+                                                _p.SendCommand(usbint_server_opcode_e.VGET, space, flags, vOperands);
                                             }
                                             Byte[] tempData = new Byte[Constants.MaxMessageSize];
 
-                                            int readSize = (size + 63) & ~63;
+                                            int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
+                                            int readSize = (size + blockSize - 1) & ~(blockSize - 1);
                                             int readByte = 0;
                                             int writeSize = size;
                                             int writeByte = 0;
-
+                                            
                                             while (readByte < readSize)
                                             {
                                                 int readOffset = readByte % Constants.MaxMessageSize;
-                                                int packetOffset = readByte % 64;
-                                                readByte += _p.GetData(tempData, readOffset, 64 - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
+                                                int packetOffset = readByte % blockSize;
+                                                int count = 0;
+                                                count = _p.GetData(tempData, readOffset, blockSize - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, blockSize - packetOffset)));
+                                                if (count == 0) continue;
+
+                                                readByte += count;
 
                                                 // send data
-                                                if (readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize))
+                                                if ((readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize)) && (writeByte < writeSize))
                                                 {
                                                     // NOTE: this only works when we read out an evently divisible amount into the buffer.
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
@@ -442,15 +511,20 @@ namespace usb2snes
                                             usbint_server_space_e space = (usbint_server_space_e)Enum.Parse(typeof(usbint_server_space_e), req.Space);
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
                                             int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
-                                            if (vOperands == null) _p.SendCommand(usbint_server_opcode_e.PUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, address, (uint)size);
+                                            if (vOperands == null)
+                                            {
+                                                flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
+                                                _p.SendCommand(usbint_server_opcode_e.PUT, space, flags, address, (uint)size);
+                                            }
                                             else
                                             {
+                                                flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
                                                 i = req.Operands.Count - 2;
-                                                _p.SendCommand(usbint_server_opcode_e.VPUT, space, usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B | flags, vOperands);
+                                                _p.SendCommand(usbint_server_opcode_e.VPUT, space, flags, vOperands);
                                             }
 
                                             // get data and write to USB
-                                            int blockSize = 64;
+                                            int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
                                             // simplify data receipt by allocating a full size buffer
                                             Byte[] receiveBuffer = new Byte[blockSize];
                                             Byte[] fileBuffer = new Byte[size + Constants.MaxMessageSize];
@@ -513,7 +587,8 @@ namespace usb2snes
                                             rsp.Results.Add(size.ToString("X"));
                                             socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = false });
 
-                                            int readSize = (size + 511) & ~511;
+                                            int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
+                                            int readSize = (size + blockSize - 1) & ~(blockSize - 1);
                                             int readByte = 0;
                                             int writeSize = size;
                                             int writeByte = 0;
@@ -521,11 +596,13 @@ namespace usb2snes
                                             while (readByte < readSize)
                                             {
                                                 int readOffset = readByte % Constants.MaxMessageSize;
-                                                int packetOffset = readByte % 64;
-                                                readByte += _p.GetData(tempData, readOffset, 64 - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
+                                                int packetOffset = readByte % blockSize;
+                                                var count = _p.GetData(tempData, readOffset, blockSize - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, 64 - packetOffset)));
+                                                if (count == 0) continue;
+                                                readByte += count;
 
                                                 // send data
-                                                if (readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize))
+                                                if ((readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize)) && (writeByte < writeSize))
                                                 {
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
                                                     writeByte += toWriteSize;
@@ -547,7 +624,7 @@ namespace usb2snes
 
                                         // get data and write to USB
                                         //WebSocketReceiveResult result;
-                                        int blockSize = 512;
+                                        int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
                                         // simplify data receipt by allocating a full size buffer
                                         Byte[] receiveBuffer = new Byte[blockSize];
                                         Byte[] fileBuffer = new Byte[size + Constants.MaxMessageSize];
@@ -607,6 +684,23 @@ namespace usb2snes
                         catch (Exception e)
                         {
                             // TODO: close all sockets and clear queues
+                            lock(_ports)
+                            {
+                                var p = _ports[_p.PortName()];
+
+                                lock (p.Clients)
+                                {
+                                    // close all clients
+                                    foreach (var c in p.Clients) c.Value.Context.WebSocket.Close();
+
+                                    // clear them out
+                                    p.Clients.Clear();
+                                }
+
+                                // remove the port so a new one needs to be created
+                                _ports.Remove(_p.PortName());
+                            }
+                            break;
                         }
                     }
                 }

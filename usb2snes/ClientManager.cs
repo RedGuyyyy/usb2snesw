@@ -109,8 +109,13 @@ namespace usb2snes
             }
             if (l.Count != 0) projectDict.Add("active clients", l);
 
+            List<string> apps = new List<string>();
+            if (File.Exists("apps/usb2snesfileviewer.exe")) apps.Add("FileViewer");
+            if (File.Exists("apps/usb2snesmemoryviewer.exe")) apps.Add("MemoryViewer");
+            if (File.Exists("apps/NintendoSpy.exe")) apps.Add("InputViewer");
+
             l = new List<ClientGroup>();
-            foreach (var p in new string[] { "FileViewer", "MemoryViewer"})
+            foreach (var p in apps)
             {
                 l.Add(new ClientGroup { Name = p, ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
             }
@@ -201,7 +206,7 @@ namespace usb2snes
             {
                 if (targetServerGroup == "FileViewer")
                 {
-                    var p = Process.Start("usb2snesfileviewer");
+                    var p = Process.Start(@"apps\usb2snesfileviewer.exe");
                     children.Add(p, instance.ToString() + ": " + targetServerGroup);
                     instance++;
                     p.EnableRaisingEvents = true;
@@ -213,7 +218,19 @@ namespace usb2snes
                 }
                 else if (targetServerGroup == "MemoryViewer")
                 {
-                    var p = Process.Start("usb2snesmemoryviewer");
+                    var p = Process.Start(@"apps\usb2snesmemoryviewer.exe");
+                    children.Add(p, instance.ToString() + ": " + targetServerGroup);
+                    instance++;
+                    p.EnableRaisingEvents = true;
+                    p.Exited += Child_FormClosing;
+                    //var child = new WindowsFormsApplication1.usb2snesviewer();
+                    //children.Add(child, targetServerGroup);
+                    //child.FormClosing += Child_FormClosing;
+                    //child.Show();
+                }
+                else if (targetServerGroup == "InputViewer")
+                {
+                    var p = Process.Start(@"apps\NintendoSpy.exe");
                     children.Add(p, instance.ToString() + ": " + targetServerGroup);
                     instance++;
                     p.EnableRaisingEvents = true;

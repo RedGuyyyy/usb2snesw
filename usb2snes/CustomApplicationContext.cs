@@ -201,8 +201,8 @@ namespace usb2snes
             //if (introForm != null) { introForm.Close(); }
             if (detailsForm != null) { detailsForm.Close(); }
 
-            clientManager.Close();
             server.Stop();
+            clientManager.Close();
 
             notifyIcon.Visible = false; // should remove lingering tray icon
             notifyIcon.Icon = null;

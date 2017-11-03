@@ -126,8 +126,8 @@ namespace usb2snes {
             serialPort.Handshake = Handshake.None;
 
             // Support long timeout (infinite may lock up app)
-            serialPort.ReadTimeout = 3000;
-            serialPort.WriteTimeout = 3000;
+            serialPort.ReadTimeout = 5000;
+            serialPort.WriteTimeout = 5000;
 
             serialPort.DtrEnable = true;
             serialPort.Open();
@@ -380,7 +380,7 @@ namespace usb2snes {
             return serialPort.Read(data, offset, length);
         }
 
-        private SerialPort serialPort;
+        public SerialPort serialPort;
     }
 
 }

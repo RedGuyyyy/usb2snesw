@@ -138,7 +138,7 @@ namespace usb2snes
         {
             InitializeComponent();
 
-            comboBoxRegion.Items.Add("ALL");
+            comboBoxRegion.Items.Add("SD2SNES_RANGE");
             comboBoxRegion.Items.Add("WRAM");
             comboBoxRegion.Items.Add("VRAM");
             comboBoxRegion.Items.Add("APU");
@@ -148,7 +148,9 @@ namespace usb2snes
             comboBoxRegion.Items.Add("CPUREG");
             comboBoxRegion.Items.Add("MISC");
             comboBoxRegion.Items.Add("MSU");
-            comboBoxRegion.Items.Add("RAM_RANGE");
+
+            _waitHandles[0] = _ev;
+            _waitHandles[1] = _term;
 
             try
             {
@@ -177,6 +179,7 @@ namespace usb2snes
         {
             Monitor.Enter(_timerLock);
             _timer.Stop();
+            _term.Set();
             //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             _ws.Close();
             //_timer.Dispose();
@@ -223,17 +226,18 @@ namespace usb2snes
 
         private void comboBoxRegion_SelectedIndexChanged(object sender, EventArgs e)
         {
-            Monitor.Enter(_timerLock);
             _timer.Stop();
+            Monitor.Enter(_timerLock);
 
             try
             {
                 int oldRegionSize = _regionSize;
+                _offset = 0;
 
                 _region = comboBoxRegion.SelectedIndex;
                 switch (_region)
                 {
-                    case 0:  _regionBase = 0xF50000; _regionSize = 0x0050000; break;
+                    case 0: try { _regionBase = Convert.ToInt32(textBoxBase.Text, 16); } catch (Exception x) { _regionBase = 0x0; }; try { _regionSize = Convert.ToInt32(textBoxSize.Text, 16); } catch (Exception x) { _regionSize = 0x100; } break;
                     case 1:  _regionBase = 0xF50000; _regionSize = 0x0020000; break;
                     case 2:  _regionBase = 0xF70000; _regionSize = 0x0010000; break;
                     case 3:  _regionBase = 0xF80000; _regionSize = 0x0010000; break;
@@ -243,7 +247,6 @@ namespace usb2snes
                     case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
                     case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
                     case 9:  _regionBase = 0x000000; _regionSize = 0x0007800; break;
-                    case 10: try { _regionBase = Convert.ToInt32(textBoxBase.Text, 16); } catch (Exception x) { _regionBase = 0x0; }; try { _regionSize = Convert.ToInt32(textBoxSize.Text, 16); } catch (Exception x) { _regionSize = 0x100; } break;
                     default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
                 }
 
@@ -291,14 +294,13 @@ namespace usb2snes
             try
             {
                 Connect();
-                RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
 
+                RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
+                _ws.Send(serializer.Serialize(req));
+                if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
+                _ev.Reset();
                 //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 //var rsp = GetResponse(0);
-
-                _ws.Send(serializer.Serialize(req));
-                _ev.WaitOne();
-                _ev.Reset();
 
                 foreach (var port in _rsp.Results)
                 {
@@ -388,59 +390,59 @@ namespace usb2snes
         private void GetDataAndResetHead()
         {
             if (_ws.ReadyState != WebSocketState.Open) return;
-/*
-            if (_queue.Count() != 0)
-            {
-                byte[] tBuffer = new byte[512];
-                int size = (int)core.SendCommand(core.e.GET, core.e.SNES, core.e.NONE, (uint)0xF9EFF4, (uint)0x4);
-                int queueSize = 0;
-                while (queueSize < size)
-                {
-                    queueSize += core.GetData(tBuffer, queueSize, 512 - (queueSize % 512));
-                }
-                sendQHeadPtr = ((tBuffer[0x1] << 8) | (tBuffer[0x0])) & 0x7FC;
-                sendQTailPtr = ((tBuffer[0x3] << 8) | (tBuffer[0x2])) & 0x7FC;
+            /*
+                        if (_queue.Count() != 0)
+                        {
+                            byte[] tBuffer = new byte[512];
+                            int size = (int)core.SendCommand(core.e.GET, core.e.SNES, core.e.NONE, (uint)0xF9EFF4, (uint)0x4);
+                            int queueSize = 0;
+                            while (queueSize < size)
+                            {
+                                queueSize += core.GetData(tBuffer, queueSize, 512 - (queueSize % 512));
+                            }
+                            sendQHeadPtr = ((tBuffer[0x1] << 8) | (tBuffer[0x0])) & 0x7FC;
+                            sendQTailPtr = ((tBuffer[0x3] << 8) | (tBuffer[0x2])) & 0x7FC;
 
-                // check if we need to make any updates
-                while (_queue.Count() != 0)
-                {
-                    // exit if we filled up the queue
-                    if (((sendQTailPtr + 4) & 0x7FC) == sendQHeadPtr) break;
+                            // check if we need to make any updates
+                            while (_queue.Count() != 0)
+                            {
+                                // exit if we filled up the queue
+                                if (((sendQTailPtr + 4) & 0x7FC) == sendQHeadPtr) break;
 
-                    var d = _queue.Dequeue();
-                    var b = d.Item2;
-                    Array.Clear(tBuffer, 0, tBuffer.Length);
-                    long addr = 0x7E0000 + b.index;
-                    tBuffer[0] = Convert.ToByte((addr >> 16) & 0xFF);
-                    tBuffer[1] = b.value;
-                    tBuffer[2] = Convert.ToByte((addr >> 0) & 0xFF);
-                    tBuffer[3] = Convert.ToByte((addr >> 8) & 0xFF);
-                    core.SendCommand(core.e.PUT, core.e.SNES, core.e.NONE, (uint)(0xF9F800 + sendQTailPtr), (uint)4);
-                    core.SendData(tBuffer, 4);
+                                var d = _queue.Dequeue();
+                                var b = d.Item2;
+                                Array.Clear(tBuffer, 0, tBuffer.Length);
+                                long addr = 0x7E0000 + b.index;
+                                tBuffer[0] = Convert.ToByte((addr >> 16) & 0xFF);
+                                tBuffer[1] = b.value;
+                                tBuffer[2] = Convert.ToByte((addr >> 0) & 0xFF);
+                                tBuffer[3] = Convert.ToByte((addr >> 8) & 0xFF);
+                                core.SendCommand(core.e.PUT, core.e.SNES, core.e.NONE, (uint)(0xF9F800 + sendQTailPtr), (uint)4);
+                                core.SendData(tBuffer, 4);
 
-                    sendQTailPtr = (sendQTailPtr + 4) & 0x7FC;
-                }
+                                sendQTailPtr = (sendQTailPtr + 4) & 0x7FC;
+                            }
 
-                // advance tail pointer
-                Array.Clear(tBuffer, 0, tBuffer.Length);
-                // snes is little endian
-                tBuffer[0] = Convert.ToByte((sendQTailPtr >> 0) & 0xFF);
-                tBuffer[1] = Convert.ToByte((sendQTailPtr >> 8) & 0xFF);
+                            // advance tail pointer
+                            Array.Clear(tBuffer, 0, tBuffer.Length);
+                            // snes is little endian
+                            tBuffer[0] = Convert.ToByte((sendQTailPtr >> 0) & 0xFF);
+                            tBuffer[1] = Convert.ToByte((sendQTailPtr >> 8) & 0xFF);
 
-                core.SendCommand(core.e.PUT, core.e.SNES, core.e.NONE, (uint)0xF9EFF6, (uint)0x2);
-                core.SendData(tBuffer, 2);
-            }
-*/
+                            core.SendCommand(core.e.PUT, core.e.SNES, core.e.NONE, (uint)0xF9EFF6, (uint)0x2);
+                            core.SendData(tBuffer, 2);
+                        }
+            */
 
             ////int fileSize = (int)core.SendCommand(core.e.GET, (_region == 9 ? core.e.MSU : core.e.SNES), core.e.NONE, (uint)_regionBase, (uint)_regionSize);
+            //_ev.Reset();
             RequestType req = new RequestType();
             req.Opcode = OpcodeType.GetAddress.ToString();
             req.Space = _region == 9 ? "MSU" : "SNES";
             req.Operands = new List<string>(new string[] { _regionBase.ToString("X"), _regionSize.ToString("X") });
             //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
             _ws.Send(serializer.Serialize(req));
-            _ev.WaitOne();
-            _ev.Reset();
+            if (WaitHandle.WaitAny(_waitHandles) != 0) return;
 
             //var rsp = GetResponse(_regionSize);
             //Array.Copy(rsp.Item2, _memory, _regionSize);
@@ -449,6 +451,7 @@ namespace usb2snes
             {
                 _provider.WriteByteNoEvent(i, _memory[i]);
             }
+            _ev.Reset();
         }
 
         /// <summary>
@@ -482,7 +485,7 @@ namespace usb2snes
 
         private void textBoxBase_TextChanged(object sender, EventArgs e)
         {
-            if (comboBoxRegion.SelectedItem.ToString() == "RAM_RANGE") {
+            if (comboBoxRegion.SelectedItem.ToString() == "SD2SNES_RANGE") {
                 try
                 {
                     _regionBase = Convert.ToInt32(textBoxBase.Text, 16);
@@ -494,7 +497,7 @@ namespace usb2snes
 
         private void textBoxSize_TextChanged(object sender, EventArgs e)
         {
-            if (comboBoxRegion.SelectedItem.ToString() == "RAM_RANGE")
+            if (comboBoxRegion.SelectedItem.ToString() == "SD2SNES_RANGE")
             {
                 _timer.Stop();
                 Monitor.Enter(_timerLock);
@@ -542,69 +545,6 @@ namespace usb2snes
             Monitor.Exit(_timerLock);
         }
 
-        //Tuple<ResponseType, Byte[]> GetResponse(int size)
-        //{
-        //    ResponseType rsp = new ResponseType();
-        //    Byte[] data = new byte[size];
-        //    byte[] receiveBuffer = new byte[Constants.MaxMessageSize];
-        //    JavaScriptSerializer serializer = new JavaScriptSerializer();
-
-        //    var reqTask = _ws.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), CancellationToken.None);
-        //    if (!reqTask.Wait(3000)) throw new Exception("socket timeout");
-        //    var result = reqTask.Result;
-
-        //    if (result.MessageType == WebSocketMessageType.Close)
-        //    {
-        //        if (!_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-        //    }
-        //    else if (result.MessageType == WebSocketMessageType.Text)
-        //    {
-        //        int count = result.Count;
-
-        //        while (result.EndOfMessage == false)
-        //        {
-        //            if (count >= 1024)
-        //            {
-        //                string closeMessage = string.Format("Maximum message size: {0} bytes.", Constants.MaxMessageSize);
-        //                if (!_ws.CloseAsync(WebSocketCloseStatus.MessageTooBig, closeMessage, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-        //                return Tuple.Create(rsp, data);
-        //            }
-
-        //            var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, count, Constants.MaxMessageSize - count), CancellationToken.None);
-        //            if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
-        //            result = rspTask.Result;
-
-        //            count += result.Count;
-        //        }
-
-        //        var messageString = Encoding.UTF8.GetString(receiveBuffer, 0, count);
-        //        //rsp = new ResponsePacketType();
-        //        rsp = serializer.Deserialize<ResponseType>(messageString);
-        //    }
-        //    else if (result.MessageType == WebSocketMessageType.Binary)
-        //    {
-        //        int count = 0;
-
-        //        // copy initial data
-        //        Array.Copy(receiveBuffer, 0, data, count, result.Count);
-
-        //        count += result.Count;
-
-        //        // handle binary response
-        //        while (result.EndOfMessage == false)
-        //        {
-        //            var rspTask = _ws.ReceiveAsync(new ArraySegment<Byte>(receiveBuffer, 0, Constants.MaxMessageSize), CancellationToken.None);
-        //            if (!rspTask.Wait(3000)) throw new Exception("socket timeout");
-        //            result = rspTask.Result;
-
-        //            Array.Copy(receiveBuffer, 0, data, count, result.Count);
-        //            count += result.Count;
-        //        }
-        //    }
-
-        //    return Tuple.Create(rsp, data);
-        //}
-
         private void ws_Opened(object sender, EventArgs e)
         {
             _ev.Set();
@@ -636,6 +576,11 @@ namespace usb2snes
         //    _ev.Set();
         //}
 
+        private void ws_Error(object sender, EventArgs e)
+        {
+            //_ev.Set();
+        }
+
         private void ws_Closed(object sender, EventArgs e)
         {
             _ev.Set();
@@ -644,11 +589,12 @@ namespace usb2snes
         private void Connect()
         {
             _offset = 0;
+            _ev.Reset();
             //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             if (_ws != null && _ws.ReadyState == WebSocketState.Open)
             {
                 _ws.Close();
-                _ev.WaitOne();
+                if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
                 _ev.Reset();
             }
             _ws = new WebSocket("ws://localhost:8080/");
@@ -659,10 +605,11 @@ namespace usb2snes
             //_ws.MessageReceived += new EventHandler<MessageReceivedEventArgs>(ws_MessageReceived);
             //_ws.Closed += new EventHandler(ws_Closed);
             _ws.OnClose += ws_Closed;
+            _ws.OnError += ws_Error;
             //_ws.NoDelay = true;
 
             _ws.Connect();
-            _ev.WaitOne();
+            if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
             _ev.Reset();
             //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
             //_ws = new ClientWebSocket();
@@ -673,9 +620,12 @@ namespace usb2snes
         //ClientWebSocket _ws = new ClientWebSocket();
         WebSocket _ws = new WebSocket("ws://localhost:8080/");
         ResponseType _rsp = new ResponseType();
-        AutoResetEvent _ev = new AutoResetEvent(false);
+        ManualResetEvent _ev = new ManualResetEvent(false);
+        ManualResetEvent _term = new ManualResetEvent(false);
         JavaScriptSerializer serializer = new JavaScriptSerializer();
         int _offset = 0;
+
+        WaitHandle[] _waitHandles = new WaitHandle[2];
     }
 
 }
