@@ -2451,6 +2451,7 @@ namespace Be.Windows.Forms
 			{
 				counter++;
 				Point gridPoint = GetGridBytePoint(counter);
+                byte t = _byteProvider.ReadTimestamp(i);
 				byte b = _byteProvider.ReadByte(i);
 
 				bool isSelectedByte = i >= _bytePos && i <= (_bytePos + _selectionLength - 1) && _selectionLength != 0;
@@ -2461,7 +2462,10 @@ namespace Be.Windows.Forms
 				}
 				else
 				{
-					PaintHexString(g, b, brush, gridPoint);
+                    var br = brush;
+                    if (t != 0) brush = new SolidBrush(Color.FromArgb(t, 0, 0));
+                    PaintHexString(g, b, brush, gridPoint);
+                    brush = br;
 				}
 			}
 		}
@@ -2522,17 +2526,21 @@ namespace Be.Windows.Forms
 				counter++;
 				Point gridPoint = GetGridBytePoint(counter);
 				PointF byteStringPointF = GetByteStringPointF(gridPoint);
-				byte b = _byteProvider.ReadByte(i);
+                byte t = _byteProvider.ReadTimestamp(i);
+                byte b = _byteProvider.ReadByte(i);
 
-				bool isSelectedByte = i >= _bytePos && i <= (_bytePos + _selectionLength - 1) && _selectionLength != 0;
+                bool isSelectedByte = i >= _bytePos && i <= (_bytePos + _selectionLength - 1) && _selectionLength != 0;
 
-				if (isSelectedByte && isKeyInterpreterActive)
+                if (isSelectedByte && isKeyInterpreterActive)
 				{
 					PaintHexStringSelected(g, b, selBrush, selBrushBack, gridPoint);
 				}
 				else
 				{
-					PaintHexString(g, b, brush, gridPoint);
+                    var br = brush;
+                    if (t != 0) brush = new SolidBrush(Color.FromArgb(t, 0, 0));
+                    PaintHexString(g, b, brush, gridPoint);
+                    brush = br;
 				}
 
 				string s = new String(ByteCharConverter.ToChar(b), 1);

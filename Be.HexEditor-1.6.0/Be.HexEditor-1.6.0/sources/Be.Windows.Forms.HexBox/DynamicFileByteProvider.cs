@@ -100,6 +100,14 @@ namespace Be.Windows.Forms
         }
 
         /// <summary>
+        /// See <see cref="IByteProvider.ReadTimestamp" /> for more information.
+        /// </summary>
+        public byte ReadTimestamp(long index)
+        {
+            return 0;
+        }
+
+        /// <summary>
         /// See <see cref="IByteProvider.WriteByte" /> for more information.
         /// </summary>
         public void WriteByte(long index, byte value)

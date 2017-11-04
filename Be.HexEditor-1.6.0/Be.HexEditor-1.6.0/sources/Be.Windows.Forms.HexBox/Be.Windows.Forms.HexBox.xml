@@ -342,6 +342,13 @@
             <param name="index">the index of the byte to read</param>
             <returns>the byte</returns>
         </member>
+        <member name="M:Be.Windows.Forms.DynamicByteProvider.ReadTimestamp(System.Int64)">
+            <summary>
+            Reads a timestamp from the byte collection.
+            </summary>
+            <param name="index">the index of the byte to read</param>
+            <returns>the byte</returns>
+        </member>
         <member name="M:Be.Windows.Forms.DynamicByteProvider.WriteByte(System.Int64,System.Byte)">
             <summary>
             Write a byte into the byte collection.
@@ -427,6 +434,11 @@
         <member name="M:Be.Windows.Forms.DynamicFileByteProvider.ReadByte(System.Int64)">
             <summary>
             See <see cref="M:Be.Windows.Forms.IByteProvider.ReadByte(System.Int64)" /> for more information.
+            </summary>
+        </member>
+        <member name="M:Be.Windows.Forms.DynamicFileByteProvider.ReadTimestamp(System.Int64)">
+            <summary>
+            See <see cref="M:Be.Windows.Forms.IByteProvider.ReadTimestamp(System.Int64)" /> for more information.
             </summary>
         </member>
         <member name="M:Be.Windows.Forms.DynamicFileByteProvider.WriteByte(System.Int64,System.Byte)">
@@ -589,6 +601,13 @@
         <member name="M:Be.Windows.Forms.FileByteProvider.ReadByte(System.Int64)">
             <summary>
             Reads a byte from the file.
+            </summary>
+            <param name="index">the index of the byte to read</param>
+            <returns>the byte</returns>
+        </member>
+        <member name="M:Be.Windows.Forms.FileByteProvider.ReadTimestamp(System.Int64)">
+            <summary>
+            Reads a timestamp from the file.
             </summary>
             <param name="index">the index of the byte to read</param>
             <returns>the byte</returns>
@@ -1698,6 +1717,12 @@
             </summary>
             <param name="index">the index of the byte to write</param>
             <param name="value">the byte to write</param>
+        </member>
+        <member name="M:Be.Windows.Forms.IByteProvider.ReadTimestamp(System.Int64)">
+            <summary>
+            Reads the current timestamp
+            </summary>
+            <param name="index">the index of the byte to read the timestamp for</param>
         </member>
         <member name="M:Be.Windows.Forms.IByteProvider.InsertBytes(System.Int64,System.Byte[])">
             <summary>

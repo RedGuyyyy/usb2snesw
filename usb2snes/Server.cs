@@ -75,7 +75,8 @@ namespace usb2snes
 
             public void Start()
             {
-                WebSocketServer _wssv = new WebSocketServer("ws://localhost:8080");
+                WebSocketServer _wssv = new WebSocketServer("ws://localhost:8080/");
+                //WebSocketServer _wssv = new WebSocketServer(System.Net.IPAddress.Loopback, 8080);
                 _wssv.AddWebSocketService<ClientSocket>("/", () => new ClientSocket(_ports));
                 _wssv.Start();
                 _ev.WaitOne();

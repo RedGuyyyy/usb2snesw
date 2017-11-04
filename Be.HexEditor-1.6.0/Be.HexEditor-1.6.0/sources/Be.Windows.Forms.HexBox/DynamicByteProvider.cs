@@ -44,6 +44,7 @@ namespace Be.Windows.Forms
 		/// Contains a byte collection.
 		/// </summary>
 		List<byte> _bytes;
+        List<byte> _timestamps;
 
 		/// <summary>
 		/// Initializes a new instance of the DynamicByteProvider class.
@@ -51,7 +52,9 @@ namespace Be.Windows.Forms
 		/// <param name="data"></param>
 		public DynamicByteProvider(byte[] data) : this(new List<Byte>(data)) 
 		{
-		}
+            _timestamps = new List<byte>(new List<Byte>(data));
+            _timestamps.ForEach(t => t = 0);
+        }
 
 		/// <summary>
 		/// Initializes a new instance of the DynamicByteProvider class.
@@ -60,12 +63,14 @@ namespace Be.Windows.Forms
 		public DynamicByteProvider(List<Byte> bytes)
 		{
 			_bytes = bytes;
-		}
+            _timestamps = new List<byte>(new List<Byte>(bytes));
+            _timestamps.ForEach(t => t = 0);
+        }
 
-		/// <summary>
-		/// Raises the Changed event.
-		/// </summary>
-		void OnChanged(EventArgs e)
+        /// <summary>
+        /// Raises the Changed event.
+        /// </summary>
+        void OnChanged(EventArgs e)
 		{
 			_hasChanges = true;
 
@@ -97,6 +102,8 @@ namespace Be.Windows.Forms
         /// <param name="value">the byte</param>
         public void WriteByteNoEvent(long index, byte value)
         {
+            if (_bytes[(int)index] != value)
+                _timestamps[(int)index] = 252; // make even so we don't wrap on decrement
             _bytes[(int)index] = value;
         }
 
@@ -134,7 +141,15 @@ namespace Be.Windows.Forms
 		/// <param name="index">the index of the byte to read</param>
 		/// <returns>the byte</returns>
 		public byte ReadByte(long index)
-		{ return _bytes[(int)index]; }
+		{ if (_timestamps[(int)index] != 0) _timestamps[(int)index] -= 4; return _bytes[(int)index]; }
+
+        /// <summary>
+        /// Reads a timestamp from the byte collection.
+        /// </summary>
+        /// <param name="index">the index of the byte to read</param>
+        /// <returns>the byte</returns>
+        public byte ReadTimestamp(long index)
+        { return _timestamps[(int)index]; }
 
         /// <summary>
         /// Write a byte into the byte collection.
@@ -156,9 +171,10 @@ namespace Be.Windows.Forms
 		{ 
 			int internal_index = (int)Math.Max(0, index);
 			int internal_length = (int)Math.Min((int)Length, length);
-			_bytes.RemoveRange(internal_index, internal_length); 
+			_bytes.RemoveRange(internal_index, internal_length);
+            _timestamps.RemoveRange(internal_index, internal_length);
 
-			OnLengthChanged(EventArgs.Empty);
+            OnLengthChanged(EventArgs.Empty);
 			OnChanged(EventArgs.Empty);
 		}
 
@@ -169,9 +185,11 @@ namespace Be.Windows.Forms
 		/// <param name="bs">the byte array to insert</param>
 		public void InsertBytes(long index, byte[] bs)
 		{ 
-			_bytes.InsertRange((int)index, bs); 
+			_bytes.InsertRange((int)index, bs);
+            _timestamps.InsertRange((int)index, bs);
+            _timestamps.ForEach(t => t = 0);
 
-			OnLengthChanged(EventArgs.Empty);
+            OnLengthChanged(EventArgs.Empty);
 			OnChanged(EventArgs.Empty);
 		}
 

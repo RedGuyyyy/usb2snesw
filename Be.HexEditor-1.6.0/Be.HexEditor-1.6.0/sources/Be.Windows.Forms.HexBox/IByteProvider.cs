@@ -13,19 +13,24 @@ namespace Be.Windows.Forms
 		/// <param name="index">the index of the byte to read</param>
 		/// <returns>the byte to read</returns>
 		byte ReadByte(long index);
-		/// <summary>
-		/// Writes a byte into the provider
-		/// </summary>
-		/// <param name="index">the index of the byte to write</param>
-		/// <param name="value">the byte to write</param>
-		void WriteByte(long index, byte value);
-		/// <summary>
-		/// Inserts bytes into the provider
-		/// </summary>
-		/// <param name="index"></param>
-		/// <param name="bs"></param>
-		/// <remarks>This method must raise the LengthChanged event.</remarks>
-		void InsertBytes(long index, byte[] bs);
+        /// <summary>
+        /// Writes a byte into the provider
+        /// </summary>
+        /// <param name="index">the index of the byte to write</param>
+        /// <param name="value">the byte to write</param>
+        void WriteByte(long index, byte value);
+        /// <summary>
+        /// Reads the current timestamp
+        /// </summary>
+        /// <param name="index">the index of the byte to read the timestamp for</param>
+        byte ReadTimestamp(long index);
+        /// <summary>
+        /// Inserts bytes into the provider
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="bs"></param>
+        /// <remarks>This method must raise the LengthChanged event.</remarks>
+        void InsertBytes(long index, byte[] bs);
 		/// <summary>
 		/// Deletes bytes from the provider
 		/// </summary>
