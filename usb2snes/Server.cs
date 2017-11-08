@@ -338,11 +338,22 @@ namespace usb2snes
                         var req = elem.Request;
                         var socket = elem.Socket;
 
-                        var socketOpcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
+                        OpcodeType socketOpcode;
+                        usbint_server_flags_e flags;
 
-                        // convert flags
-                        var flags = usbint_server_flags_e.NONE;
-                        if (req.Flags != null) foreach (var flag in req.Flags) flags |= (usbint_server_flags_e)Enum.Parse(typeof(usbint_server_flags_e), flag);
+                        try
+                        {
+                            socketOpcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
+
+                            // convert flags
+                            flags = usbint_server_flags_e.NONE;
+                            if (req.Flags != null) foreach (var flag in req.Flags) flags |= (usbint_server_flags_e)Enum.Parse(typeof(usbint_server_flags_e), flag);
+                        }
+                        catch (Exception x)
+                        {
+                            socket.Context.WebSocket.Close(CloseStatusCode.ProtocolError, "Invalid Command Exception: " + x.Message);
+                            continue;
+                        }
 
                         try
                         {
@@ -390,8 +401,8 @@ namespace usb2snes
                                             // send data
                                             if (readByte == readSize)
                                             {
-                                                socket.Queue.Enqueue(new ResponseQueueElementType() { Data = tempData, Done = false });
-
+                                                socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, readSize).ToArray(), Done = false });
+                                                readByte = 0;
                                                 // TODO: deal with disconnects
                                                 //_p.Reset();
                                                 //try { while (true) _p.GetData(tempData, 0, 64); } catch (Exception x) { break; }

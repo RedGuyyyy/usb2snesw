@@ -109,21 +109,49 @@ namespace usb2snes
             }
             if (l.Count != 0) projectDict.Add("active clients", l);
 
-            List<string> apps = new List<string>();
-            if (File.Exists("apps/usb2snesfileviewer.exe")) apps.Add("FileViewer");
-            if (File.Exists("apps/usb2snesmemoryviewer.exe")) apps.Add("MemoryViewer");
-            if (File.Exists("apps/NintendoSpy.exe")) apps.Add("InputViewer");
+            List<Tuple<string, string>> apps = new List<Tuple<string, string>>();
 
-            l = new List<ClientGroup>();
-            foreach (var p in apps)
+            //if (File.Exists("apps/usb2snesfileviewer.exe")) apps.Add("FileViewer");
+            //if (File.Exists("apps/usb2snesmemoryviewer.exe")) apps.Add("MemoryViewer");
+            //if (File.Exists("apps/NintendoSpy.exe")) apps.Add("InputViewer");
+            //foreach (var p in Settings.Default.RegisteredAppList)
+            //{
+            //    l.Add(new ClientGroup { Name = Path.GetFileName(p), Path = p, ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
+            //}
+            //l.Add(new ClientGroup { Name = "<Add Application>", ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
+
+            if (Directory.Exists("apps"))
             {
-                l.Add(new ClientGroup { Name = p, ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
+                foreach (var d in Directory.GetDirectories("apps"))
+                {
+                    var dirName = new DirectoryInfo(d).Name;
+
+                    // first check for exe of the same name
+                    string dirPath = @"apps\" + dirName;
+                    string exePath = dirPath + @"\" + dirName + ".exe";
+                    if (File.Exists(exePath))
+                    {
+                        apps.Add(Tuple.Create(dirName, Path.GetFullPath(exePath)));
+                    }
+                    else
+                    {
+                        foreach (var e in Directory.GetFiles(dirPath))
+                        {
+                            if (Path.GetExtension(e) == ".exe")
+                            {
+                                apps.Add(Tuple.Create(dirName, Path.GetFullPath(e)));
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                l = new List<ClientGroup>();
+                foreach (var p in apps)
+                {
+                    l.Add(new ClientGroup { Name = p.Item1, ProcessRef = null, EnabledCount = 0, DisabledCount = 0, Path = p.Item2 });
+                }
             }
-            foreach (var p in Settings.Default.RegisteredAppList)
-            {
-                l.Add(new ClientGroup { Name = Path.GetFileName(p), Path = p, ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
-            }
-            l.Add(new ClientGroup { Name = "<Add Application>", ProcessRef = null, EnabledCount = 0, DisabledCount = 0 });
             projectDict.Add("clients", l);
         }
 
@@ -204,90 +232,90 @@ namespace usb2snes
 
             if (targetProject == "clients")
             {
-                if (targetServerGroup == "FileViewer")
-                {
-                    var p = Process.Start(@"apps\usb2snesfileviewer.exe");
-                    children.Add(p, instance.ToString() + ": " + targetServerGroup);
-                    instance++;
-                    p.EnableRaisingEvents = true;
-                    p.Exited += Child_FormClosing;
-                    //var child = new WindowsFormsApplication1.usb2snes();
-                    //children.Add(child, targetServerGroup);
-                    //child.FormClosing += Child_FormClosing;
-                    //child.Show();
-                }
-                else if (targetServerGroup == "MemoryViewer")
-                {
-                    var p = Process.Start(@"apps\usb2snesmemoryviewer.exe");
-                    children.Add(p, instance.ToString() + ": " + targetServerGroup);
-                    instance++;
-                    p.EnableRaisingEvents = true;
-                    p.Exited += Child_FormClosing;
-                    //var child = new WindowsFormsApplication1.usb2snesviewer();
-                    //children.Add(child, targetServerGroup);
-                    //child.FormClosing += Child_FormClosing;
-                    //child.Show();
-                }
-                else if (targetServerGroup == "InputViewer")
-                {
-                    var p = Process.Start(@"apps\NintendoSpy.exe");
-                    children.Add(p, instance.ToString() + ": " + targetServerGroup);
-                    instance++;
-                    p.EnableRaisingEvents = true;
-                    p.Exited += Child_FormClosing;
-                    //var child = new WindowsFormsApplication1.usb2snesviewer();
-                    //children.Add(child, targetServerGroup);
-                    //child.FormClosing += Child_FormClosing;
-                    //child.Show();
-                }
-                else if (targetServerGroup == "<Add Application>")
-                {
-                    System.Windows.Forms.OpenFileDialog dlg = new OpenFileDialog();
-                    dlg.Title = "Executable to Register";
-                    dlg.Filter = "Exe File|*.exe"
-                                 + "|All Files|*.*";
-                    dlg.FileName = "";
+                //if (targetServerGroup == "FileViewer")
+                //{
+                //    var p = Process.Start(@"apps\usb2snesfileviewer.exe");
+                //    children.Add(p, instance.ToString() + ": " + targetServerGroup);
+                //    instance++;
+                //    p.EnableRaisingEvents = true;
+                //    p.Exited += Child_FormClosing;
+                //    //var child = new WindowsFormsApplication1.usb2snes();
+                //    //children.Add(child, targetServerGroup);
+                //    //child.FormClosing += Child_FormClosing;
+                //    //child.Show();
+                //}
+                //else if (targetServerGroup == "MemoryViewer")
+                //{
+                //    var p = Process.Start(@"apps\usb2snesmemoryviewer.exe");
+                //    children.Add(p, instance.ToString() + ": " + targetServerGroup);
+                //    instance++;
+                //    p.EnableRaisingEvents = true;
+                //    p.Exited += Child_FormClosing;
+                //    //var child = new WindowsFormsApplication1.usb2snesviewer();
+                //    //children.Add(child, targetServerGroup);
+                //    //child.FormClosing += Child_FormClosing;
+                //    //child.Show();
+                //}
+                //else if (targetServerGroup == "InputViewer")
+                //{
+                //    var p = Process.Start(@"apps\NintendoSpy.exe");
+                //    children.Add(p, instance.ToString() + ": " + targetServerGroup);
+                //    instance++;
+                //    p.EnableRaisingEvents = true;
+                //    p.Exited += Child_FormClosing;
+                //    //var child = new WindowsFormsApplication1.usb2snesviewer();
+                //    //children.Add(child, targetServerGroup);
+                //    //child.FormClosing += Child_FormClosing;
+                //    //child.Show();
+                //}
+                //else if (targetServerGroup == "<Add Application>")
+                //{
+                //    System.Windows.Forms.OpenFileDialog dlg = new OpenFileDialog();
+                //    dlg.Title = "Executable to Register";
+                //    dlg.Filter = "Exe File|*.exe"
+                //                 + "|All Files|*.*";
+                //    dlg.FileName = "";
 
-                    if (dlg.ShowDialog() != DialogResult.Cancel)
-                    {
-                        for (int i = 0; i < dlg.FileNames.Length; i++)
-                        {
-                            string fileName = dlg.FileNames[i];
-                            //string safeFileName = dlg.SafeFileNames[i];
+                //    if (dlg.ShowDialog() != DialogResult.Cancel)
+                //    {
+                //        for (int i = 0; i < dlg.FileNames.Length; i++)
+                //        {
+                //            string fileName = dlg.FileNames[i];
+                //            //string safeFileName = dlg.SafeFileNames[i];
 
-                            Settings.Default.RegisteredAppList.Add(fileName);
-                        }
-                    }
-                }
-                else
+                //            Settings.Default.RegisteredAppList.Add(fileName);
+                //        }
+                //    }
+                //}
+                //else
+                //{
+                foreach (var client in projectDict["clients"])
                 {
-                    foreach (var client in projectDict["clients"])
+                    if (targetServerGroup == client.Name)
                     {
-                        if (targetServerGroup == client.Name)
-                        {
-                            if (e.Button == MouseButtons.Right || !File.Exists(client.Path))
-                            {
-                                var l = projectDict["clients"].ToList();
-                                l.Remove(client);
-                                projectDict["clients"] = l;
-                                Settings.Default.RegisteredAppList.Remove(client.Path);
-                            }
-                            else
-                            {
-                                var p = new Process();
-                                p.StartInfo.FileName = client.Path;
-                                p.StartInfo.WorkingDirectory = Path.GetDirectoryName(client.Path);
-                                p.StartInfo.UseShellExecute = false;
-                                p.StartInfo.CreateNoWindow = false;
-                                children.Add(p, instance.ToString() + ": " + targetServerGroup);
-                                instance++;
-                                p.EnableRaisingEvents = true;
-                                p.Exited += Child_FormClosing;
-                                p.Start();
-                            }
-                            break;
-                        }
+                        //if (e.Button == MouseButtons.Right || !File.Exists(client.Path))
+                        //{
+                        //    var l = projectDict["clients"].ToList();
+                        //    l.Remove(client);
+                        //    projectDict["clients"] = l;
+                        //    Settings.Default.RegisteredAppList.Remove(client.Path);
+                        //}
+                        //else
+                        //{
+                        var p = new Process();
+                        p.StartInfo.FileName = client.Path;
+                        p.StartInfo.WorkingDirectory = Path.GetDirectoryName(client.Path);
+                        p.StartInfo.UseShellExecute = false;
+                        p.StartInfo.CreateNoWindow = false;
+                        children.Add(p, instance.ToString() + ": " + targetServerGroup);
+                        instance++;
+                        p.EnableRaisingEvents = true;
+                        p.Exited += Child_FormClosing;
+                        p.Start();
+                        break;
                     }
+                    //}
+                    //}
                 }
             }
             else if (targetProject == "active clients")
