@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using System.Reflection;
 using System.Net.WebSockets;
+using System.IO;
 
 using WindowsFormsApplication1;
 using System.Collections.Generic;
@@ -79,9 +80,21 @@ namespace usb2snes
             clientManager = new ClientManager(notifyIcon);
             clientManager.BuildClientAssociations();
 
+            AutoUpdate();
+
             server = new Server();
             server.Start();
 		}
+
+        private void AutoUpdate_Click(object sender, EventArgs e)
+        {
+            Settings.Default.AutoUpdate = !Settings.Default.AutoUpdate;
+        }
+
+        private void ForceAutoUpdate_Click(object sender, EventArgs e)
+        {
+            Settings.Default.ForceAutoUpdate = !Settings.Default.ForceAutoUpdate;
+        }
 
         private void ContextMenuStrip_Opening(object sender, System.ComponentModel.CancelEventArgs e)
         {
@@ -97,6 +110,22 @@ namespace usb2snes
             //notifyIcon.ContextMenuStrip.Items.Add(hostManager.ToolStripMenuItemWithHandler("&SnesViewer", snesViewer_Click));
             //notifyIcon.ContextMenuStrip.Items.Add(new ToolStripSeparator());
             //notifyIcon.ContextMenuStrip.Items.Add(hostManager.ToolStripMenuItemWithHandler("Show &Details", showDetailsItem_Click));
+
+            var m = new ToolStripMenuItem("Settings");
+            notifyIcon.ContextMenuStrip.Items.Add(m);
+
+            var l = new ToolStripMenuItem("CheckVersionUpdateOnStart (Experimental)");
+            l.Click += AutoUpdate_Click;
+            l.Checked = Settings.Default.AutoUpdate;
+            //notifyIcon.ContextMenuStrip.Items.Add(l);
+            m.DropDownItems.Add(l);
+
+            l = new ToolStripMenuItem("ForceVersionUpdate (Experimental)");
+            l.Click += ForceAutoUpdate_Click;
+            l.Checked = Settings.Default.ForceAutoUpdate;
+            //notifyIcon.ContextMenuStrip.Items.Add(l);
+            m.DropDownItems.Add(l);
+
             notifyIcon.ContextMenuStrip.Items.Add(hostManager.ToolStripMenuItemWithHandler("&Help/About", showHelpItem_Click));
             notifyIcon.ContextMenuStrip.Items.Add(new ToolStripSeparator());
             notifyIcon.ContextMenuStrip.Items.Add(hostManager.ToolStripMenuItemWithHandler("&Exit", exitItem_Click));
@@ -173,6 +202,70 @@ namespace usb2snes
             notifyIcon.MouseUp += notifyIcon_MouseUp;
         }
 
+        private void AutoUpdate()
+        {
+            if (Settings.Default.AutoUpdate && Directory.Exists("sd2snes") && File.Exists("sd2snes/firmware.img"))
+            {
+                var f = File.OpenRead("sd2snes/firmware.img");
+                Byte[] buffer = new Byte[512];
+                f.Read(buffer, 0, 8);
+                f.Close();
+                uint magic = BitConverter.ToUInt32(buffer, 4);
+
+                if (Settings.Default.ForceAutoUpdate || magic != 0x44534E53)
+                {
+                    foreach (var d in core.GetDeviceList())
+                    {
+                        core c = new core();
+                        c.Connect(d.Name);
+
+                        var rsp = (List<string>)c.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.SNES, usbint_server_flags_e.NONE);
+                        var version = uint.Parse(rsp[1], System.Globalization.NumberStyles.HexNumber);
+
+                        if (version <= 0x80000003 && version != 0x44534E53)
+                        {
+                            MessageBox.Show("Version: " + rsp[0] + " requires manual update.");
+                        }
+                        else if (Settings.Default.ForceAutoUpdate || (version != 0x44534E53 && version < magic))
+                        {
+                            // copy all files over
+                            if (MessageBox.Show("Update " + d.Name + " to: " + magic.ToString("X") + "\n\n" + String.Join("\n", Directory.GetFiles("sd2snes")), "Confirm Update", MessageBoxButtons.OKCancel) == DialogResult.OK)
+                            {
+                                foreach (var fileName in Directory.GetFiles("sd2snes"))
+                                {
+                                    // transfer the file over
+                                    f = File.OpenRead(fileName);
+
+                                    c.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.FILE, usbint_server_flags_e.NONE, "/sd2snes/" + Path.GetFileName(fileName), (uint)f.Length);
+                                    for (int i = 0; i < f.Length; i += 512)
+                                    {
+                                        f.Read(buffer, 0, 512);
+                                        c.SendData(buffer, 512);
+                                    }
+
+                                    f.Close();
+                                }
+
+                                if (MessageBox.Show("Press OK to Cycle Power", "Reboot", MessageBoxButtons.OKCancel) == DialogResult.OK)
+                                {
+                                    try { c.SendCommand(usbint_server_opcode_e.POWER_CYCLE, usbint_server_space_e.SNES, usbint_server_flags_e.NONE); } catch (Exception x) { }
+                                }
+                            }
+                        }
+
+                        try
+                        {
+                            c.Disconnect();
+                        }
+                        catch (Exception x)
+                        {
+                            // if we reboot don't worry about exception
+                        }
+                    }
+                }
+            }
+        }
+
         /// <summary>
 		/// When the application context is disposed, dispose things like the notify icon.
 		/// </summary>
@@ -201,8 +294,8 @@ namespace usb2snes
             //if (introForm != null) { introForm.Close(); }
             if (detailsForm != null) { detailsForm.Close(); }
 
-            server.Stop();
             clientManager.Close();
+            server.Stop();
 
             notifyIcon.Visible = false; // should remove lingering tray icon
             notifyIcon.Icon = null;

@@ -25,7 +25,7 @@ namespace usb2snes {
         // special operations
         RESET,
         BOOT,
-        RSVD,
+        POWER_CYCLE,
         INFO,
         MENU_RESET,
         STREAM,
@@ -205,6 +205,7 @@ namespace usb2snes {
                     case usbint_server_opcode_e.MENU_RESET:
                     case usbint_server_opcode_e.INFO:
                     case usbint_server_opcode_e.STREAM:
+                    case usbint_server_opcode_e.POWER_CYCLE:
                         break;
 
                     //case usbint_server_opcode_e.EXECUTE:
@@ -267,6 +268,7 @@ namespace usb2snes {
                     case usbint_server_opcode_e.RESET:
                     case usbint_server_opcode_e.MENU_RESET:
                     case usbint_server_opcode_e.INFO:
+                    case usbint_server_opcode_e.POWER_CYCLE:
                         break;
 
                     default:

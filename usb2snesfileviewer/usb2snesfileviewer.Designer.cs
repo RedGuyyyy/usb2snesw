@@ -88,6 +88,7 @@
             this.buttonTest = new System.Windows.Forms.Button();
             this.buttonSoftReset = new System.Windows.Forms.Button();
             this.buttonMenu = new System.Windows.Forms.Button();
+            this.labelVersion = new System.Windows.Forms.Label();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -471,11 +472,21 @@
             this.buttonMenu.UseVisualStyleBackColor = true;
             this.buttonMenu.Click += new System.EventHandler(this.buttonMenu_Click);
             // 
+            // labelVersion
+            // 
+            this.labelVersion.AutoSize = true;
+            this.labelVersion.Location = new System.Drawing.Point(12, 17);
+            this.labelVersion.Name = "labelVersion";
+            this.labelVersion.Size = new System.Drawing.Size(93, 13);
+            this.labelVersion.TabIndex = 18;
+            this.labelVersion.Text = "Firmware Version: ";
+            // 
             // usb2snesfileviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(620, 372);
+            this.Controls.Add(this.labelVersion);
             this.Controls.Add(this.buttonMenu);
             this.Controls.Add(this.buttonSoftReset);
             this.Controls.Add(this.buttonTest);
@@ -562,5 +573,6 @@
         private System.Windows.Forms.ToolStripMenuItem resetToolStripMenuItem;
         private System.Windows.Forms.Button buttonMenu;
         private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
+        private System.Windows.Forms.Label labelVersion;
     }
 }

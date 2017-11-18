@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -116,15 +117,19 @@ namespace usb2snes
             private string _portName = "";
             private JavaScriptSerializer serializer = new JavaScriptSerializer();
 
-            public CommunicationQueue<ResponseQueueElementType> Queue { get; private set; }
-            public CommunicationQueue<Byte[]> DataQueue { get; private set; }
+            public BlockingCollection<ResponseQueueElementType> Queue { get; private set; }
+            //public CommunicationQueue<ResponseQueueElementType> Queue { get; private set; }
+            //public CommunicationQueue<Byte[]> DataQueue { get; private set; }
+            public BlockingCollection<Byte[]> DataQueue { get; private set; }
             //public AutoResetEvent DataEvent { get; private set; }
 
             public ClientSocket(SortedDictionary<string, Scheduler> ports)
             {
                 _ports = ports;
-                Queue = new CommunicationQueue<ResponseQueueElementType>();
-                DataQueue = new CommunicationQueue<Byte[]>();
+                //Queue = new CommunicationQueue<ResponseQueueElementType>();
+                Queue = new BlockingCollection<ResponseQueueElementType>();
+                //DataQueue = new CommunicationQueue<Byte[]>();
+                DataQueue = new BlockingCollection<Byte[]>();
                 //DataEvent = new AutoResetEvent(false);
             }
 
@@ -218,7 +223,8 @@ namespace usb2snes
                                 return;
                             }
                             var port = _ports[_portName];
-                            port.Queue.Enqueue(new RequestQueueElementType() { Request = req, Socket = this });
+                            //port.Queue.Enqueue(new RequestQueueElementType() { Request = req, Socket = this });
+                            port.Queue.Add(new RequestQueueElementType() { Request = req, Socket = this });
                         }
 
                         // if this is a data operation then wait until all data is sent back
@@ -228,12 +234,22 @@ namespace usb2snes
                             bool first = true;
                             do
                             {
-                                var t = Queue.Dequeue();
+                                //var t = Queue.Dequeue();
+                                ResponseQueueElementType t = null;
+                                try
+                                {
+                                    t = Queue.Take();
+                                }
+                                catch(Exception x)
+                                {
+                                    done = true;
+                                }
 
-                                done = !t.Item1;
+                                //done = !t.Item1;
                                 if (!done)
                                 {
-                                    var elem = t.Item2;
+                                    //var elem = t.Item2;
+                                    var elem = t;
 
                                     if (opcode == OpcodeType.List || opcode == OpcodeType.Info || (opcode == OpcodeType.GetFile && first))
                                     {
@@ -260,14 +276,9 @@ namespace usb2snes
                 }
                 else if (e.Type == Opcode.Binary)
                 {
-                    // back pressure so the transfer isn't instantaneous.
-                    // FIXME: this should be a monitor call so we don't busy wait.
-                    //DataQueue.Available(4);
-                    //while (DataQueue.Count_NoLock() >= 4) { Thread.Sleep(1); }
+                    // FIXME back pressure so the transfer isn't instantaneous.
                     Byte[] data = (Byte[])e.RawData.Clone();
-                    DataQueue.Enqueue(data);
-                    //DataEvent.WaitOne();
-                    //DataEvent.Reset();
+                    DataQueue.Add(data);
                 }
                 else if (e.Type == Opcode.Close)
                 {
@@ -293,12 +304,14 @@ namespace usb2snes
             private bool _stop = false;
             private Thread _thr;
 
-            public CommunicationQueue<RequestQueueElementType> Queue { get; private set; }
+            //public CommunicationQueue<RequestQueueElementType> Queue { get; private set; }
+            public BlockingCollection<RequestQueueElementType> Queue { get; private set; }
             public Dictionary<int, ClientSocket> Clients { get; set; }
 
             public Scheduler(string name, SortedDictionary<string, Scheduler> ports)
             {
-                Queue = new CommunicationQueue<RequestQueueElementType>();
+                //Queue = new CommunicationQueue<RequestQueueElementType>();
+                Queue = new BlockingCollection<RequestQueueElementType>();
                 Clients = new Dictionary<int, ClientSocket>();
                 _p.Connect(name);
                 _p.Reset();
@@ -330,11 +343,22 @@ namespace usb2snes
 
                 while (!_stop)
                 {
-                    var t = Queue.Dequeue();
-
-                    if (t.Item1)
+                    //var t = Queue.Dequeue();
+                    RequestQueueElementType t = null;
+                    bool done = false;
+                    try
                     {
-                        var elem = t.Item2;
+                        t = Queue.Take();
+                    }
+                    catch (Exception x)
+                    {
+                        done = true;
+                    }
+
+                    if (!done)
+                    {
+                        //var elem = t.Item2;
+                        var elem = t;
                         var req = elem.Request;
                         var socket = elem.Socket;
 
@@ -381,7 +405,8 @@ namespace usb2snes
                                         ResponseType rsp = new ResponseType();
                                         rsp.Results = version;
 
-                                        socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = true });
+                                        //socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = true });
+                                        socket.Queue.Add(new ResponseQueueElementType() { Response = rsp, Done = true });
                                         break;
                                     }
                                 case OpcodeType.Stream:
@@ -401,7 +426,8 @@ namespace usb2snes
                                             // send data
                                             if (readByte == readSize)
                                             {
-                                                socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, readSize).ToArray(), Done = false });
+                                                //socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, readSize).ToArray(), Done = false });
+                                                socket.Queue.Add(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, readSize).ToArray(), Done = false });
                                                 readByte = 0;
                                                 // TODO: deal with disconnects
                                                 //_p.Reset();
@@ -483,7 +509,8 @@ namespace usb2snes
                                                     // NOTE: this only works when we read out an evently divisible amount into the buffer.
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
                                                     writeByte += toWriteSize;
-                                                    socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
+                                                    //socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
+                                                    socket.Queue.Add(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
                                                 }
                                             }
                                         }
@@ -544,11 +571,23 @@ namespace usb2snes
                                             int putCount = 0;
                                             do
                                             {
-                                                var d = socket.DataQueue.Dequeue();
-                                                if (d.Item1)
+                                                Byte[] d = null;
+                                                bool dataDone = false;
+                                                try
                                                 {
-                                                    Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
-                                                    getCount += d.Item2.Length;
+                                                    d = socket.DataQueue.Take();
+                                                }
+                                                catch (Exception x)
+                                                {
+                                                    dataDone = true;
+                                                }
+
+                                                if (!dataDone)
+                                                {
+                                                    //Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
+                                                    //getCount += d.Item2.Length;
+                                                    Array.Copy(d, 0, fileBuffer, getCount, d.Length);
+                                                    getCount += d.Length;
 
                                                     // if we have received all data then round up to the next 64B.  else send up to the current complete 64B
                                                     int nextCount = (getCount >= totalSize) ? ((totalSize + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
@@ -581,7 +620,8 @@ namespace usb2snes
                                         }
 
                                         // send entire list (or last)
-                                        socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = true });
+                                        //socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = true });
+                                        socket.Queue.Add(new ResponseQueueElementType() { Response = rsp, Done = true });
                                     }
                                     break;
                                 case OpcodeType.GetFile:
@@ -597,7 +637,8 @@ namespace usb2snes
                                             ResponseType rsp = new ResponseType();
                                             rsp.Results = new List<string>();
                                             rsp.Results.Add(size.ToString("X"));
-                                            socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = false });
+                                            //socket.Queue.Enqueue(new ResponseQueueElementType() { Response = rsp, Done = false });
+                                            socket.Queue.Add(new ResponseQueueElementType() { Response = rsp, Done = false });
 
                                             int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
                                             int readSize = (size + blockSize - 1) & ~(blockSize - 1);
@@ -618,7 +659,8 @@ namespace usb2snes
                                                 {
                                                     int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
                                                     writeByte += toWriteSize;
-                                                    socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
+                                                    //socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
+                                                    socket.Queue.Add(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
                                                 }
                                             }
                                         }
@@ -647,11 +689,24 @@ namespace usb2snes
                                             //result = await s.ReceiveAsync(new ArraySegment<Byte>(fileBuffer, getCount, size + blockSize - getCount), _token);
                                             //getCount += result.Count;
 
-                                            var d = socket.DataQueue.Dequeue();
-                                            if (d.Item1)
+                                            //var d = socket.DataQueue.Dequeue();
+                                            Byte[] d = null;
+                                            bool dataDone = false;
+                                            try
                                             {
-                                                Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
-                                                getCount += d.Item2.Length;
+                                                d = socket.DataQueue.Take();
+                                            }
+                                            catch (Exception x)
+                                            {
+                                                dataDone = true;
+                                            }
+
+                                            if (!dataDone)
+                                            {
+                                                //Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
+                                                //getCount += d.Item2.Length;
+                                                Array.Copy(d, 0, fileBuffer, getCount, d.Length);
+                                                getCount += d.Length;
 
                                                 int nextCount = (getCount >= size) ? ((size + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
                                                 // send data over USB
@@ -724,8 +779,8 @@ namespace usb2snes
             public void Stop()
             {
                 _stop = true;
-                Queue.Stop();
-                //_thr.Abort();
+                //Queue.Stop();
+                Queue.CompleteAdding();
                 _thr.Join();
             }
 

@@ -133,7 +133,14 @@ namespace usb2snes
                 foreach (string name in names)
                 {
                     int type = (File.GetAttributes(name) & FileAttributes.Directory) == FileAttributes.Directory ? 0 : 1;
-                    if (type == 1 && Path.GetExtension(name).ToLower() != ".sfc" && Path.GetExtension(name).ToLower() != ".smc" && Path.GetExtension(name).ToLower() != ".fig") continue;
+                    if (type == 1
+                        && Path.GetExtension(name).ToLower() != ".sfc"
+                        && Path.GetExtension(name).ToLower() != ".smc"
+                        && Path.GetExtension(name).ToLower() != ".fig"
+                        && Path.GetFileName(name).ToLower() != "firmware.img"
+                        && (!Path.GetFileName(name).ToLower().StartsWith("fpga_") || Path.GetExtension(name).ToLower() != ".bit")
+                        //&& Path.GetExtension(name).ToLower() != ".srm"
+                        ) continue;
 
                     ListViewItem item = new ListViewItem(System.IO.Path.GetFileName(name), type);
                     ListViewItem.ListViewSubItem[] subItems = new ListViewItem.ListViewSubItem[] { new ListViewItem.ListViewSubItem(item, type == 0 ? "Directory" : "File"), new ListViewItem.ListViewSubItem(item, "") };
@@ -325,6 +332,11 @@ namespace usb2snes
                 RequestType req = new RequestType() { Opcode = OpcodeType.Attach.ToString(), Space = "SNES", Operands = new List<string>(new string[] { comboBoxPort.SelectedItem.ToString() }) };
                 //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 _ws.Send(serializer.Serialize(req));
+
+                req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
+                _ws.Send(serializer.Serialize(req));
+                WaitSocket();
+                labelVersion.Text = "Firmware Version: " + _rsp.Results[0] + " (0x" + _rsp.Results[1] + ")" ;
 
                 remoteDirPrev = "";
                 remoteDir = "";
@@ -875,6 +887,57 @@ namespace usb2snes
                     //    }
 
                     //}
+                    else if (true)
+                    {
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
+                        int fileSize = 0x2;
+                        int curSize = 0;
+
+                        // write data
+                        var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xFC2000.ToString("X"), fileSize.ToString("X") }) };
+                        //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                        _ws.Send(serializer.Serialize(req));
+
+                        //Array.Clear(tBuffer, 0, tBuffer.Length);
+
+                        tBuffer[0] = 0;
+                        tBuffer[1] = 1;
+
+                        while (curSize < fileSize)
+                        {
+                            int bytesToWrite = Math.Min(Constants.MaxMessageSize, fileSize - curSize);
+                            curSize += bytesToWrite;
+                            // need to limit the segment size to send correct amount
+                            //if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= fileSize, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                            _ws.Send(new ArraySegment<byte>(tBuffer, 0, bytesToWrite).ToArray());
+                        }
+
+                    }
+                    else if (false)
+                    {
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
+                        int fileSize = 0x2;
+                        int curSize = 0;
+
+                        for (int c = 0; c < 0x7ffffffe; c++)
+                        {
+                            var req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xC0FFD5.ToString("X"), fileSize.ToString("X") }) };
+                            //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                            _ws.Send(serializer.Serialize(req));
+                            SetClient();
+
+                            curSize = 0;
+                            while (curSize < fileSize)
+                            {
+                                WaitSocket();
+                                //var rsp = GetData();
+                                //dataEnd = rsp.Item1;
+
+                                curSize += _data.Length;
+                                SetClient();
+                            }
+                        }
+                    }
                     else
                     {
                         // test vector operations
