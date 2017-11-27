@@ -76,12 +76,13 @@ namespace usb2snes
 
             public void Start()
             {
-                WebSocketServer _wssv = new WebSocketServer("ws://localhost:8080/");
+                WebSocketServer wssv = new WebSocketServer("ws://localhost:8080/");
+                wssv.Log.Output = (_, __) => { };
                 //WebSocketServer _wssv = new WebSocketServer(System.Net.IPAddress.Loopback, 8080);
-                _wssv.AddWebSocketService<ClientSocket>("/", () => new ClientSocket(_ports));
-                _wssv.Start();
+                wssv.AddWebSocketService<ClientSocket>("/", () => new ClientSocket(_ports));
+                wssv.Start();
                 _ev.WaitOne();
-                _wssv.Stop();
+                wssv.Stop();
             }
 
             /// <summary>
@@ -463,7 +464,12 @@ namespace usb2snes
                                             sizeOperand = !sizeOperand;
                                         }
 
-                                        Byte[] data = new Byte[totalSize];
+                                        // allocate full buffer to make indexing easier
+                                        // pad for max blockSize
+                                        Byte[] data = new Byte[totalSize + 512];
+                                        int sendCount = 0;
+                                        int recvCount = 0;
+
                                         for (int i = 0; i < req.Operands.Count; i += 2)
                                         {
                                             var name = req.Operands[i + 0];
@@ -473,7 +479,6 @@ namespace usb2snes
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
                                             int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
 
-                                            // FIXME: problem with large transfers and 64B???
                                             if (vOperands == null)
                                             {
                                                 flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
@@ -485,43 +490,55 @@ namespace usb2snes
                                                 i = req.Operands.Count - 2;
                                                 _p.SendCommand(usbint_server_opcode_e.VGET, space, flags, vOperands);
                                             }
-                                            Byte[] tempData = new Byte[Constants.MaxMessageSize];
 
                                             int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
-                                            int readSize = (size + blockSize - 1) & ~(blockSize - 1);
-                                            int readByte = 0;
-                                            int writeSize = size;
-                                            int writeByte = 0;
-                                            
-                                            while (readByte < readSize)
+                                            int transferSize = (size + blockSize - 1) & ~(blockSize - 1);
+                                            // must be ceiling of the multiple of the block size
+                                            int transferCount = 0;
+                                            // actual size
+                                            int localRecvCount = 0;
+
+                                            do
                                             {
-                                                int readOffset = readByte % Constants.MaxMessageSize;
-                                                int packetOffset = readByte % blockSize;
-                                                int count = 0;
-                                                count = _p.GetData(tempData, readOffset, blockSize - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, blockSize - packetOffset)));
-                                                if (count == 0) continue;
-
-                                                readByte += count;
-
-                                                // send data
-                                                if ((readByte == readSize || (readByte - writeByte >= Constants.MaxMessageSize)) && (writeByte < writeSize))
+                                                // fill up to one of the following conditions
+                                                // 1) local operation complete
+                                                // 2) MaxMessageSize data available
+                                                while (transferCount < transferSize && recvCount + localRecvCount - sendCount < Constants.MaxMessageSize)
                                                 {
-                                                    // NOTE: this only works when we read out an evently divisible amount into the buffer.
-                                                    int toWriteSize = Math.Min(writeSize - writeByte, Constants.MaxMessageSize);
-                                                    writeByte += toWriteSize;
-                                                    //socket.Queue.Enqueue(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
-                                                    socket.Queue.Add(new ResponseQueueElementType() { Data = new ArraySegment<byte>(tempData, 0, toWriteSize).ToArray(), Done = (writeByte >= writeSize) });
+                                                    int packetOffset = localRecvCount % blockSize;
+                                                    int count = _p.GetData(data, recvCount + localRecvCount, blockSize - packetOffset); // Math.Min(readSize - readByte, Math.Min(Constants.MaxMessageSize - readOffset, blockSize - packetOffset)));
+                                                    if (count == 0) continue;
+                                                    transferCount += count;
+
+                                                    // if we received over the size then clamp it the size
+                                                    localRecvCount = Math.Min(transferCount, size);
                                                 }
-                                            }
+
+                                                // send message if
+                                                // 1) We have no more data to send for this GET
+                                                // 2) MaxMessage data available
+                                                while (recvCount + localRecvCount - sendCount >= Math.Min(totalSize - sendCount, Constants.MaxMessageSize) && sendCount < totalSize)
+                                                {
+                                                    // recalculate last data beat to send on every message
+                                                    int bytesToSend = Math.Min(totalSize - sendCount, Constants.MaxMessageSize);
+
+                                                    socket.Queue.Add(new ResponseQueueElementType() { Data = (Byte[])(new ArraySegment<byte>(data, sendCount, bytesToSend).ToArray()).Clone(), Done = sendCount + bytesToSend >= totalSize });
+                                                    sendCount += bytesToSend;
+                                                }
+
+                                                // check if we are are done and have to send the final message
+                                            } while (transferCount < transferSize);
+
+                                            recvCount += localRecvCount;
                                         }
                                         break;
                                     }
                                 case OpcodeType.PutAddress:
                                     {
                                         // TODO: decide if we want to pack more optimally
-                                        // vector operands only support up to 8 tuples
                                         int totalSize = 0;
                                         bool sizeOperand = false;
+                                        // vector operands only support up to 8 tuples
                                         Tuple<int, int>[] vOperands = (req.Operands.Count <= 16) ? new Tuple<int, int>[req.Operands.Count / 2] : null;
                                         string nameOperand = "";
                                         int operandNum = 0;
@@ -542,6 +559,12 @@ namespace usb2snes
                                             sizeOperand = !sizeOperand;
                                         }
 
+                                        // allocate full buffer to make indexing easier
+                                        // pad for max blockSize
+                                        Byte[] data = new Byte[totalSize + 512];
+                                        int sendCount = 0;
+                                        int recvCount = 0;
+
                                         for (int i = 0; i < req.Operands.Count; i += 2)
                                         {
                                             var name = req.Operands[i + 0];
@@ -550,6 +573,7 @@ namespace usb2snes
                                             usbint_server_space_e space = (usbint_server_space_e)Enum.Parse(typeof(usbint_server_space_e), req.Space);
                                             uint address = uint.Parse(name, System.Globalization.NumberStyles.HexNumber);
                                             int size = (vOperands != null) ? totalSize : int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
+
                                             if (vOperands == null)
                                             {
                                                 flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
@@ -562,46 +586,44 @@ namespace usb2snes
                                                 _p.SendCommand(usbint_server_opcode_e.VPUT, space, flags, vOperands);
                                             }
 
-                                            // get data and write to USB
                                             int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
-                                            // simplify data receipt by allocating a full size buffer
-                                            Byte[] receiveBuffer = new Byte[blockSize];
-                                            Byte[] fileBuffer = new Byte[size + Constants.MaxMessageSize];
-                                            int getCount = 0;
-                                            int putCount = 0;
+                                            int localSendCount = 0;
+
                                             do
                                             {
-                                                Byte[] d = null;
-                                                bool dataDone = false;
-                                                try
+                                                // fill up to one of the following conditions
+                                                // 1) local operation complete
+                                                // 2) blockSize data available
+                                                while (recvCount - (sendCount + localSendCount) < blockSize && recvCount < totalSize)
                                                 {
-                                                    d = socket.DataQueue.Take();
-                                                }
-                                                catch (Exception x)
-                                                {
-                                                    dataDone = true;
-                                                }
-
-                                                if (!dataDone)
-                                                {
-                                                    //Array.Copy(d.Item2, 0, fileBuffer, getCount, d.Item2.Length);
-                                                    //getCount += d.Item2.Length;
-                                                    Array.Copy(d, 0, fileBuffer, getCount, d.Length);
-                                                    getCount += d.Length;
-
-                                                    // if we have received all data then round up to the next 64B.  else send up to the current complete 64B
-                                                    int nextCount = (getCount >= totalSize) ? ((totalSize + blockSize - 1) & ~(blockSize - 1)) : (getCount & ~(blockSize - 1));
-                                                    // send data over USB
-                                                    while (putCount < nextCount)
+                                                    Byte[] d = null;
+                                                    try
                                                     {
-                                                        // copies for now.  Would be better to work with array segments
-                                                        Array.Copy(fileBuffer, putCount, receiveBuffer, 0, blockSize);
-                                                        putCount += blockSize;
-                                                        _p.SendData(receiveBuffer, blockSize);
+                                                        d = socket.DataQueue.Take();
                                                     }
-                                                    //socket.DataEvent.Set();
+                                                    catch (Exception x)
+                                                    {
+                                                        continue;
+                                                    }
+                                                    Array.Copy(d, 0, data, recvCount, d.Length);
+                                                    recvCount += d.Length;
                                                 }
-                                            } while (putCount < totalSize);
+
+                                                // send message if
+                                                // 1) We haven't finished sending this particular PUT
+                                                // 2) Block available
+                                                bool dataDone = sendCount + blockSize >= totalSize;
+                                                while (localSendCount < size && recvCount - (sendCount + localSendCount) >= Math.Min(totalSize - (sendCount + localSendCount), blockSize))
+                                                {
+                                                    _p.SendData(new ArraySegment<Byte>(data, sendCount + localSendCount, blockSize).ToArray(), blockSize);
+                                                    localSendCount += blockSize;
+                                                }
+
+                                                // if we received over the size then clamp it the size
+                                                localSendCount = Math.Min(localSendCount, size);
+                                            } while (localSendCount < size);
+
+                                            sendCount += localSendCount;
                                         }
                                         break;
                                     }

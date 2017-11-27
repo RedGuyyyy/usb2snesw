@@ -598,6 +598,7 @@ namespace usb2snes
                 _ev.Reset();
             }
             _ws = new WebSocket("ws://localhost:8080/");
+            _ws.Log.Output = (_, __) => { };
             //_ws.Opened += new EventHandler(ws_Opened);
             _ws.OnOpen += ws_Opened;
             //_ws.DataReceived += new EventHandler<DataReceivedEventArgs>(ws_DataReceived);
@@ -608,8 +609,12 @@ namespace usb2snes
             _ws.OnError += ws_Error;
             //_ws.NoDelay = true;
 
+            //_ws.Connect();
+            //if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
+            _ws.WaitTime = TimeSpan.FromSeconds(4);
             _ws.Connect();
-            if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
+            if (_ws.ReadyState != WebSocketState.Open && _ws.ReadyState != WebSocketState.Connecting) throw new Exception("Connection timeout");
+
             _ev.Reset();
             //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
             //_ws = new ClientWebSocket();

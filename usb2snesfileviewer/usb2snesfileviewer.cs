@@ -51,6 +51,8 @@ namespace usb2snes
             listViewRemote.ListViewItemSorter = new Sorter();
             listViewLocal.ListViewItemSorter = new Sorter();
 
+            _ws.Log.Output = (_, __) => { };
+
             _clientWaitHandles[0] = _evClient;
             _clientWaitHandles[1] = _term;
 
@@ -287,12 +289,15 @@ namespace usb2snes
                 }
                 //if (!_ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 _ws = new WebSocket("ws://localhost:8080/");
+                _ws.Log.Output = (_, __) => { };
 
                 _ws.OnOpen += ws_Opened;
                 _ws.OnMessage += ws_MessageReceived;
                 _ws.OnClose += ws_Closed;
 
+                _ws.WaitTime = TimeSpan.FromSeconds(4);
                 _ws.Connect();
+                if (_ws.ReadyState != WebSocketState.Open && _ws.ReadyState != WebSocketState.Connecting) throw new Exception("Connection timeout");
                 WaitSocket();
 
                 RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
@@ -798,7 +803,7 @@ namespace usb2snes
         /// <param name="e"></param>
         private void buttonTest_Click(object sender, EventArgs e)
         {
-            return;
+            //return;
 
             try
             {
@@ -887,22 +892,29 @@ namespace usb2snes
                     //    }
 
                     //}
-                    else if (true)
+                    else if (false)
                     {
                         byte[] tBuffer = new byte[Constants.MaxMessageSize];
-                        int fileSize = 0x2;
+                        int fileSize = 0x8;
                         int curSize = 0;
 
                         // write data
-                        var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xFC2000.ToString("X"), fileSize.ToString("X") }) };
+                        var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xFC2002.ToString("X"), (fileSize / 2).ToString("X"), 0xFC2002.ToString("X"), (fileSize / 2).ToString("X") }) };
                         //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         _ws.Send(serializer.Serialize(req));
 
                         //Array.Clear(tBuffer, 0, tBuffer.Length);
 
-                        tBuffer[0] = 0;
-                        tBuffer[1] = 1;
+                        tBuffer[0] = 0xFF;
+                        tBuffer[1] = 0xFF;
+                        tBuffer[2] = 0xFF;
+                        tBuffer[3] = 0xFF;
+                        tBuffer[4] = 0x50;
+                        tBuffer[5] = 0x00;
+                        tBuffer[6] = 0x60;
+                        tBuffer[7] = 0x00;
 
+                        curSize = 0;
                         while (curSize < fileSize)
                         {
                             int bytesToWrite = Math.Min(Constants.MaxMessageSize, fileSize - curSize);
@@ -958,11 +970,10 @@ namespace usb2snes
 
                                 var tuple = new List<string>();
                                 fileSize = 0;
-                                // FIXME: force 2
                                 for (int j = 0; j < 1 + r.Next(8); j++)
                                 {
-                                    tuple.Add((0xE40000 + j * 0x400 + r.Next(0x300)).ToString("X"));
-                                    int size = 1 + r.Next(255);
+                                    tuple.Add((0xE40000 + j * 0x400 + r.Next(0x200)).ToString("X"));
+                                    int size = 1 + r.Next(0x1FF/*255*/);
                                     tuple.Add(size.ToString("X"));
                                     fileSize += size;
                                 }
