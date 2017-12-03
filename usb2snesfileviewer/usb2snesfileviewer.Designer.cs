@@ -89,6 +89,7 @@
             this.buttonSoftReset = new System.Windows.Forms.Button();
             this.buttonMenu = new System.Windows.Forms.Button();
             this.labelVersion = new System.Windows.Forms.Label();
+            this.labelWebSocketVersion = new System.Windows.Forms.Label();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -475,17 +476,27 @@
             // labelVersion
             // 
             this.labelVersion.AutoSize = true;
-            this.labelVersion.Location = new System.Drawing.Point(12, 17);
+            this.labelVersion.Location = new System.Drawing.Point(12, 6);
             this.labelVersion.Name = "labelVersion";
             this.labelVersion.Size = new System.Drawing.Size(93, 13);
             this.labelVersion.TabIndex = 18;
             this.labelVersion.Text = "Firmware Version: ";
+            // 
+            // labelWebSocketVersion
+            // 
+            this.labelWebSocketVersion.AutoSize = true;
+            this.labelWebSocketVersion.Location = new System.Drawing.Point(12, 22);
+            this.labelWebSocketVersion.Name = "labelWebSocketVersion";
+            this.labelWebSocketVersion.Size = new System.Drawing.Size(108, 13);
+            this.labelWebSocketVersion.TabIndex = 19;
+            this.labelWebSocketVersion.Text = "WebSocket Version: ";
             // 
             // usb2snesfileviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(620, 372);
+            this.Controls.Add(this.labelWebSocketVersion);
             this.Controls.Add(this.labelVersion);
             this.Controls.Add(this.buttonMenu);
             this.Controls.Add(this.buttonSoftReset);
@@ -574,5 +585,6 @@
         private System.Windows.Forms.Button buttonMenu;
         private System.Windows.Forms.ToolStripMenuItem menuToolStripMenuItem;
         private System.Windows.Forms.Label labelVersion;
+        private System.Windows.Forms.Label labelWebSocketVersion;
     }
 }

@@ -14,6 +14,12 @@ using WebSocketSharp;
 using WebSocketSharp.Net;
 using WebSocketSharp.Server;
 
+using usb2snes.Properties;
+using System.Runtime.InteropServices;
+using System.IO;
+using System.Windows.Forms;
+using System.Reflection;
+
 using usb2snes;
 using log4net;
 
@@ -77,6 +83,9 @@ namespace usb2snes
 
             public void Start()
             {
+                // check for update
+                AutoUpdate();
+
                 WebSocketServer wssv = new WebSocketServer("ws://localhost:8080/");
                 wssv.Log.Output = (_, __) => { };
                 //WebSocketServer _wssv = new WebSocketServer(System.Net.IPAddress.Loopback, 8080);
@@ -106,6 +115,70 @@ namespace usb2snes
                     }
                 }
                 _ev.Set();
+            }
+
+            private void AutoUpdate()
+            {
+                if (Settings.Default.AutoUpdate && Directory.Exists("sd2snes") && File.Exists("sd2snes/firmware.img"))
+                {
+                    var f = File.OpenRead("sd2snes/firmware.img");
+                    Byte[] buffer = new Byte[512];
+                    f.Read(buffer, 0, 8);
+                    f.Close();
+                    uint magic = BitConverter.ToUInt32(buffer, 4);
+
+                    if (Settings.Default.ForceAutoUpdate || magic != 0x44534E53)
+                    {
+                        foreach (var d in core.GetDeviceList())
+                        {
+                            core c = new core();
+                            c.Connect(d.Name);
+
+                            var rsp = (List<string>)c.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.SNES, usbint_server_flags_e.NONE);
+                            var version = uint.Parse(rsp[1], System.Globalization.NumberStyles.HexNumber);
+
+                            if (version <= 0x80000003 && version != 0x44534E53)
+                            {
+                                MessageBox.Show("Version: " + rsp[0] + " requires manual update.", "Manual Update");
+                            }
+                            else if (Settings.Default.ForceAutoUpdate || (version != 0x44534E53 && version < magic))
+                            {
+                                // copy all files over
+                                if (MessageBox.Show("Update " + d.Name + " to: " + magic.ToString("X") + "\n\n" + String.Join("\n", Directory.GetFiles("sd2snes")), "Confirm Update", MessageBoxButtons.OKCancel) == DialogResult.OK)
+                                {
+                                    foreach (var fileName in Directory.GetFiles("sd2snes"))
+                                    {
+                                        // transfer the file over
+                                        f = File.OpenRead(fileName);
+
+                                        c.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.FILE, usbint_server_flags_e.NONE, "/sd2snes/" + Path.GetFileName(fileName), (uint)f.Length);
+                                        for (int i = 0; i < f.Length; i += 512)
+                                        {
+                                            f.Read(buffer, 0, 512);
+                                            c.SendData(buffer, 512);
+                                        }
+
+                                        f.Close();
+                                    }
+
+                                    if (MessageBox.Show("Press OK to Cycle Power", "Reboot", MessageBoxButtons.OKCancel) == DialogResult.OK)
+                                    {
+                                        try { c.SendCommand(usbint_server_opcode_e.POWER_CYCLE, usbint_server_space_e.SNES, usbint_server_flags_e.NONE); } catch (Exception x) { }
+                                    }
+                                }
+                            }
+
+                            try
+                            {
+                                c.Disconnect();
+                            }
+                            catch (Exception x)
+                            {
+                                // if we reboot don't worry about exception
+                            }
+                        }
+                    }
+                }
             }
 
         }
@@ -149,7 +222,7 @@ namespace usb2snes
                 base.OnClose(e);
             }
 
-            protected override void OnError(ErrorEventArgs e)
+            protected override void OnError(WebSocketSharp.ErrorEventArgs e)
             {
                 log.Info("OnError: " + ID + ": " + GetHashCode());
                 base.OnError(e);
@@ -175,7 +248,16 @@ namespace usb2snes
                         foreach (var c in d) rsp.Results.Add(c.Name);
 
                         Send(serializer.Serialize(rsp));
-                        //SendAsync(serializer.Serialize(rsp), a => { });
+                    }
+                    else if (opcode == OpcodeType.AppVersion)
+                    {
+                        ResponseType rsp = new ResponseType();
+                        rsp.Results = new List<string>();
+
+                        var v = Assembly.GetExecutingAssembly().GetName().Version;
+
+                        rsp.Results.Add(v.ToString());
+                        Send(serializer.Serialize(rsp));
                     }
                     else if (opcode == OpcodeType.Attach)
                     {

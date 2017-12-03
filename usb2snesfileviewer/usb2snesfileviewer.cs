@@ -343,6 +343,11 @@ namespace usb2snes
                 WaitSocket();
                 labelVersion.Text = "Firmware Version: " + _rsp.Results[0] + " (0x" + _rsp.Results[1] + ")" ;
 
+                req = new RequestType() { Opcode = OpcodeType.AppVersion.ToString(), Space = "SNES" };
+                _ws.Send(serializer.Serialize(req));
+                WaitSocket();
+                labelWebSocketVersion.Text = "WebSocket Version: " + _rsp.Results[0];
+
                 remoteDirPrev = "";
                 remoteDir = "";
                 remoteDirNext = "";
@@ -803,7 +808,7 @@ namespace usb2snes
         /// <param name="e"></param>
         private void buttonTest_Click(object sender, EventArgs e)
         {
-            //return;
+            return;
 
             try
             {
@@ -843,7 +848,7 @@ namespace usb2snes
                     }
                     else if (false)
                     {
-                        RequestType req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
+                        RequestType req = new RequestType() { Opcode = OpcodeType.AppVersion.ToString(), Space = "SNES" };
                         //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                         //var rsp = GetResponse();
                         _ws.Send(serializer.Serialize(req));
@@ -1040,13 +1045,7 @@ namespace usb2snes
                 byte[] tBuffer = new byte[Constants.MaxMessageSize];
                 int curSize = 0;
 
-                RequestType req = new RequestType()
-                {
-                    Opcode = OpcodeType.PutIPS.ToString(),
-                    Space = "SNES",
-                    Operands = new List<string>(new string[] { "hook", fs.Length.ToString("X") }),
-                    //Flags = new List<string>(new string[] { (patchNum == 0 && i == 0) ? "CLRX" : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? "SETX" : "NONE" })
-                };
+                RequestType req = new RequestType() { Opcode = OpcodeType.PutIPS.ToString(), Space = "SNES", Operands = new List<string>(new string[] { "hook", fs.Length.ToString("X") }) };
                 _ws.Send(serializer.Serialize(req));
 
                 // write data

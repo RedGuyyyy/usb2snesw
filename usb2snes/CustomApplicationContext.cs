@@ -11,6 +11,8 @@ using System.Collections.Generic;
 
 using usb2snes.Properties;
 
+using System.Runtime.InteropServices;
+
 /*
  * ==============================================================
  * @ID       $Id: MainForm.cs 971 2010-09-30 16:09:30Z ww $
@@ -80,11 +82,11 @@ namespace usb2snes
             clientManager = new ClientManager(notifyIcon);
             clientManager.BuildClientAssociations();
 
-            AutoUpdate();
-
             server = new Server();
             server.Start();
-		}
+
+            //AutoUpdate();
+        }
 
         private void AutoUpdate_Click(object sender, EventArgs e)
         {
@@ -224,7 +226,7 @@ namespace usb2snes
 
                         if (version <= 0x80000003 && version != 0x44534E53)
                         {
-                            MessageBox.Show("Version: " + rsp[0] + " requires manual update.");
+                            MessageBox.Show("Version: " + rsp[0] + " requires manual update.", "Manual Update");
                         }
                         else if (Settings.Default.ForceAutoUpdate || (version != 0x44534E53 && version < magic))
                         {
@@ -294,18 +296,20 @@ namespace usb2snes
             //if (introForm != null) { introForm.Close(); }
             if (detailsForm != null) { detailsForm.Close(); }
 
+            // save settings
+            Settings.Default.Save();
+
             clientManager.Close();
             server.Stop();
 
             notifyIcon.Visible = false; // should remove lingering tray icon
             notifyIcon.Icon = null;
-            base.ExitThreadCore();
 
-            // save settings
-            Settings.Default.Save();
+            base.ExitThreadCore();
         }
 
         # endregion generic code framework
 
     }
+
 }

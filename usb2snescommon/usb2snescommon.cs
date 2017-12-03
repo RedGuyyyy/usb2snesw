@@ -20,6 +20,7 @@ namespace usb2snes
         // Connection
         DeviceList, // Request: Operands: null,                                   Response: Operands[stringList]
         Attach,     // Request: Operands: [COM#],                                 NoResponse
+        AppVersion, // Request: Operands: null,                                   Response: Operands[stringList]
 
         // Special
         Info,       // Request: Operands: null,                                   Response: Result: [versionString, version#]
@@ -32,7 +33,7 @@ namespace usb2snes
         // Address space access
         GetAddress, // Request: Operands: [address,size],                         Data: [data]
         PutAddress, // Request: Operands: [address,size],    Data: [data]         
-        PutIPS,     // Request: Operands: ["hook" if executable,size],        Data: [data]         
+        PutIPS,     // Request: Operands: [""/"hook",size],  Data: [data]         
 
         // File system access
         GetFile,    // Request: Operands: [filename],                             Data: [data]

@@ -500,7 +500,7 @@ namespace usb2snes
 
                         if (_region == 1)
                         {
-                            var address = he.index;
+                            var address = 0x7E0000 + he.index;
                             // STA.l $7E0000+addr
                             cmd.Add(0x8F); cmd.Add(Convert.ToByte((address >> 0) & 0xFF)); cmd.Add(Convert.ToByte((address >> 8) & 0xFF)); cmd.Add(Convert.ToByte((address >> 16) & 0xFF));
                         }
