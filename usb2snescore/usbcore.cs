@@ -40,6 +40,7 @@ namespace usb2snes {
         FILE = 0,
         SNES,
         MSU,
+        CMD,
         CONFIG,
     };
 

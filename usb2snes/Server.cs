@@ -15,6 +15,7 @@ using WebSocketSharp.Net;
 using WebSocketSharp.Server;
 
 using usb2snes;
+using log4net;
 
 namespace usb2snes
 {
@@ -118,6 +119,8 @@ namespace usb2snes
             private string _portName = "";
             private JavaScriptSerializer serializer = new JavaScriptSerializer();
 
+            private static readonly ILog log = LogManager.GetLogger(typeof(ClientSocket));
+
             public BlockingCollection<ResponseQueueElementType> Queue { get; private set; }
             //public CommunicationQueue<ResponseQueueElementType> Queue { get; private set; }
             //public CommunicationQueue<Byte[]> DataQueue { get; private set; }
@@ -136,16 +139,19 @@ namespace usb2snes
 
             protected override void OnOpen()
             {
+                log.Info("OnOpen: " + ID + ": " + GetHashCode());
                 base.OnOpen();
             }
 
             protected override void OnClose(CloseEventArgs e)
             {
+                log.Info("OnClose: " + ID + ": " + GetHashCode());
                 base.OnClose(e);
             }
 
             protected override void OnError(ErrorEventArgs e)
             {
+                log.Info("OnError: " + ID + ": " + GetHashCode());
                 base.OnError(e);
             }
 
@@ -157,6 +163,8 @@ namespace usb2snes
                     var messageString = e.Data;
                     var req = new RequestType();
                     req = serializer.Deserialize<RequestType>(messageString);
+
+                    log.Info(messageString);
 
                     var opcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
                     if (opcode == OpcodeType.DeviceList)
@@ -201,6 +209,7 @@ namespace usb2snes
                                         catch (Exception x)
                                         {
                                             // close the socket if there is a failure
+                                            log.Error("Unable to create new port: " + req.Operands[0]);
                                             Context.WebSocket.Close();
                                             return;
                                         }
@@ -309,6 +318,8 @@ namespace usb2snes
             public BlockingCollection<RequestQueueElementType> Queue { get; private set; }
             public Dictionary<int, ClientSocket> Clients { get; set; }
 
+            private static readonly ILog log = LogManager.GetLogger(typeof(Scheduler));
+
             public Scheduler(string name, SortedDictionary<string, Scheduler> ports)
             {
                 //Queue = new CommunicationQueue<RequestQueueElementType>();
@@ -318,16 +329,21 @@ namespace usb2snes
                 _p.Reset();
                 Byte[] buffer = new Byte[64];
                 // read out any remaining data
-                var timeout = _p.serialPort.ReadTimeout;
-                try {
-                    _p.serialPort.ReadTimeout = 50;
-                    _p.serialPort.WriteTimeout = 50;
-                    while (true) _p.GetData(buffer, 0, 64);
-                } catch (Exception e) { } 
-                finally
+                if (_p.serialPort.BytesToRead != 0)
                 {
-                    _p.serialPort.ReadTimeout = timeout;
-                    _p.serialPort.WriteTimeout = timeout;
+                    var timeout = _p.serialPort.ReadTimeout;
+                    try
+                    {
+                        _p.serialPort.ReadTimeout = 50;
+                        _p.serialPort.WriteTimeout = 50;
+                        while (true) _p.GetData(buffer, 0, 64);
+                    }
+                    catch (Exception e) { }
+                    finally
+                    {
+                        _p.serialPort.ReadTimeout = timeout;
+                        _p.serialPort.WriteTimeout = timeout;
+                    }
                 }
                 _ports = ports;
 
@@ -366,6 +382,8 @@ namespace usb2snes
                         OpcodeType socketOpcode;
                         usbint_server_flags_e flags;
 
+                        log.Info("USB Begin: " + serializer.Serialize(req));
+
                         try
                         {
                             socketOpcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
@@ -376,6 +394,7 @@ namespace usb2snes
                         }
                         catch (Exception x)
                         {
+                            log.Warn("Invalid Command Exception: " + x.Message);
                             socket.Context.WebSocket.Close(CloseStatusCode.ProtocolError, "Invalid Command Exception: " + x.Message);
                             continue;
                         }
@@ -470,6 +489,8 @@ namespace usb2snes
                                         int sendCount = 0;
                                         int recvCount = 0;
 
+                                        //try { 
+
                                         for (int i = 0; i < req.Operands.Count; i += 2)
                                         {
                                             var name = req.Operands[i + 0];
@@ -481,7 +502,7 @@ namespace usb2snes
 
                                             if (vOperands == null)
                                             {
-                                                flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
+                                                flags |= usbint_server_flags_e.NORESP/* | usbint_server_flags_e.DATA64B*/;
                                                 _p.SendCommand(usbint_server_opcode_e.GET, space, flags, address, (uint)size);
                                             }
                                             else
@@ -531,6 +552,10 @@ namespace usb2snes
 
                                             recvCount += localRecvCount;
                                         }
+                                        //} catch(Exception e)
+                                        //{
+                                        //    int i = 0;
+                                        //}
                                         break;
                                     }
                                 case OpcodeType.PutAddress:
@@ -576,7 +601,7 @@ namespace usb2snes
 
                                             if (vOperands == null)
                                             {
-                                                flags |= usbint_server_flags_e.NORESP | usbint_server_flags_e.DATA64B;
+                                                flags |= usbint_server_flags_e.NORESP/* | usbint_server_flags_e.DATA64B*/;
                                                 _p.SendCommand(usbint_server_opcode_e.PUT, space, flags, address, (uint)size);
                                             }
                                             else
@@ -625,6 +650,66 @@ namespace usb2snes
 
                                             sendCount += localSendCount;
                                         }
+                                        break;
+                                    }
+                                case OpcodeType.PutIPS:
+                                    {
+                                        var name = req.Operands[0];
+                                        var sizeStr = req.Operands[1];
+
+                                        usbint_server_space_e space = (usbint_server_space_e)Enum.Parse(typeof(usbint_server_space_e), req.Space);
+                                        int size = int.Parse(sizeStr, System.Globalization.NumberStyles.HexNumber);
+
+                                        // collect the full IPS patch
+                                        var data = new Byte[size];
+                                        int blockSize = ((flags & usbint_server_flags_e.DATA64B) == 0) ? 512 : 64;
+
+                                        int recvCount = 0;
+                                        while (recvCount < size)
+                                        {
+                                            Byte[] d = null;
+                                            try
+                                            {
+                                                d = socket.DataQueue.Take();
+                                            }
+                                            catch (Exception x)
+                                            {
+                                                continue;
+                                            }
+                                            Array.Copy(d, 0, data, recvCount, d.Length);
+                                            recvCount += d.Length;
+                                        }
+
+                                        // parse IPS
+                                        IPS ips = new IPS();
+                                        ips.Parse(data);
+
+                                        int patchNum = 0;
+                                        // loop through patches and send to USB
+                                        foreach (var patch in ips.Items)
+                                        {
+                                            var tBuffer = new Byte[patch.data.Count + blockSize];
+                                            Array.Copy(patch.data.ToArray(), 0, tBuffer, 0, patch.data.Count);
+
+                                            var localFlags = flags | usbint_server_flags_e.NORESP/* | usbint_server_flags_e.DATA64B*/;
+
+                                            // handle hook executables
+                                            if (name == "hook" && patchNum == 0) localFlags |= usbint_server_flags_e.CLRX;
+                                            if (name == "hook" && patchNum == ips.Items.Count - 1) localFlags |= usbint_server_flags_e.SETX;
+
+                                            _p.SendCommand(usbint_server_opcode_e.PUT, space, localFlags, (uint)patch.address, (uint)patch.data.Count);
+
+                                            int sendCount = 0;
+                                            while (sendCount < patch.data.Count)
+                                            {
+                                                int toWriteSize = Math.Min(patch.data.Count - sendCount, Constants.MaxMessageSize);
+                                                _p.SendData(new ArraySegment<Byte>(tBuffer, sendCount, blockSize).ToArray(), blockSize);
+                                                sendCount += blockSize;
+                                            }
+
+                                            patchNum++;
+                                        }
+
                                         break;
                                     }
                                 case OpcodeType.List:
@@ -773,7 +858,9 @@ namespace usb2snes
                         catch (Exception e)
                         {
                             // TODO: close all sockets and clear queues
-                            lock(_ports)
+                            log.Error("USB Exception: " + e.Message);
+
+                            lock (_ports)
                             {
                                 var p = _ports[_p.PortName()];
 
@@ -791,6 +878,8 @@ namespace usb2snes
                             }
                             break;
                         }
+
+                        log.Info("USB End: " + serializer.Serialize(req));
                     }
                 }
             }

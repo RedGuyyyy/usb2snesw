@@ -148,6 +148,7 @@ namespace usb2snes
             comboBoxRegion.Items.Add("CPUREG");
             comboBoxRegion.Items.Add("MISC");
             comboBoxRegion.Items.Add("MSU");
+            comboBoxRegion.Items.Add("CMD");
 
             _waitHandles[0] = _ev;
             _waitHandles[1] = _term;
@@ -155,8 +156,6 @@ namespace usb2snes
             try
             {
                 _provider = new DynamicByteProvider(new byte[0x50000]);
-                // ignore event handlers for now since we shouldn't change them.
-                // FIXME: insert/remove shouldn't call this event.  This is only supposed to be for user changes (writes)
                 _provider.Changed += new EventHandler(UpdateSnesMemory);
                 hexBox.ByteProvider = _provider;
 
@@ -170,7 +169,6 @@ namespace usb2snes
             _timer.AutoReset = false;
             _timer.Elapsed += new ElapsedEventHandler(RefreshSnesMemory);
             _timer.Stop();
-            //_timer.Interval = 200;
 
             comboBoxRegion.SelectedIndex = 0;
         }
@@ -180,10 +178,7 @@ namespace usb2snes
             Monitor.Enter(_timerLock);
             _timer.Stop();
             _term.Set();
-            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             _ws.Close();
-            //_timer.Dispose();
-            ////core.Disconnect();
         }
 
         private void comboBoxPort_SelectedIndexChanged(object sender, EventArgs e)
@@ -197,14 +192,11 @@ namespace usb2snes
 
                 if (comboBoxPort.SelectedIndex >= 0)
                 {
-                    ////core.Disconnect();
-                    ////core.Connect(port.Name);
                     Connect();
                     RequestType req = new RequestType();
                     req.Opcode = OpcodeType.Attach.ToString();
                     req.Space = "SNES";
                     req.Operands = new List<string>(new string[] { comboBoxPort.SelectedItem.ToString() });
-                    //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                     _ws.Send(serializer.Serialize(req));
 
                     pictureConnected.Image = Resources.bullet_green;
@@ -247,6 +239,7 @@ namespace usb2snes
                     case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
                     case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
                     case 9:  _regionBase = 0x000000; _regionSize = 0x0007800; break;
+                    case 10: _regionBase = 0x002A00; _regionSize = 0x0000600; break; // CMD only uses 1.5KB
                     default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
                 }
 
@@ -258,6 +251,8 @@ namespace usb2snes
                 {
                     _provider.DeleteBytes(_regionSize, oldRegionSize - _regionSize);
                 }
+
+                hexBox.ReadOnly = (_region != 0 && _region != 1 && _region != 2 && _region != 4 && _region != 5 && _region != 10);
             }
             catch (Exception x)
             {
@@ -289,7 +284,6 @@ namespace usb2snes
             comboBoxPort.ResetText();
             comboBoxPort.SelectedIndex = -1;
             pictureConnected.Image = Resources.bullet_red;
-            //pictureConnected.Refresh();
 
             try
             {
@@ -299,8 +293,6 @@ namespace usb2snes
                 _ws.Send(serializer.Serialize(req));
                 if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
                 _ev.Reset();
-                //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                //var rsp = GetResponse(0);
 
                 foreach (var port in _rsp.Results)
                 {
@@ -317,16 +309,12 @@ namespace usb2snes
 
         private void RefreshMemoryView()
         {
-            //hexBox.Invalidate();
-            // update visual
-
             hexBox.Refresh();
         }
 
         private void RefreshSnesMemory(object source, ElapsedEventArgs e)
         {
             System.Timers.Timer timer = (System.Timers.Timer)source;
-            //Monitor.Enter(_timerLock);
 
             if (checkBoxAutoUpdate.Checked)
             {
@@ -365,87 +353,253 @@ namespace usb2snes
             // send updates
             if (e is HexBoxEventArgs)
             {
-                ByteChange b = new ByteChange();
-                HexBoxEventArgs he = (HexBoxEventArgs)e;
+                try
+                {
+                    Monitor.Enter(_timerLock);
 
-                b.index = he.index;
-                b.value = he.value;
-                _queue.Enqueue(b);
+                    HexBoxEventArgs he = (HexBoxEventArgs)e;
+
+                    if (_region == 0)
+                    {
+                        // RAM
+                        var address = _regionBase + he.index;
+
+                        RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { address.ToString("X"), 1.ToString("X") }) };
+                        _ws.Send(serializer.Serialize(req));
+                        _ws.Send(new Byte[] { he.value });
+
+                    }
+                    if (_region == 10)
+                    {
+                        // RAM
+                        var address = 0x2A00 + he.index;
+
+                        RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CMD", Operands = new List<string>(new string[] { address.ToString("X"), 1.ToString("X") }) };
+                        _ws.Send(serializer.Serialize(req));
+                        _ws.Send(new Byte[] { he.value });
+                    }
+                    else if (_region == 1 || _region == 2 || _region == 4 || _region == 5)
+                    {
+                        // setup new command
+                        List<Byte> cmd = new List<Byte>();
+
+                        // PHP
+                        cmd.Add(0x08);
+                        // SEP #20
+                        cmd.Add(0xE2); cmd.Add(0x20);
+                        // PHA
+                        cmd.Add(0x48);
+                        // XBA
+                        cmd.Add(0xEB);
+                        // PHA
+                        cmd.Add(0x48);
+
+                        if (_region == 1)
+                        {
+                            // WRAM
+
+                            // LDA.l $7E0000+addr
+                            var address = 0x7E0000 + he.index;
+                            cmd.Add(0xAF); cmd.Add(Convert.ToByte((address >> 0) & 0xFF)); cmd.Add(Convert.ToByte((address >> 8) & 0xFF)); cmd.Add(Convert.ToByte((address >> 16) & 0xFF));
+                        }
+                        else if (_region == 2)
+                        {
+                            // VRAM
+                            var address = he.index >> 1;
+                            var lowByte = (he.index & 0x1) == 0;
+
+                            // push control
+                            cmd.Add(0xAF); cmd.Add(0x2A); cmd.Add(0x05); cmd.Add(0xF9);
+                            cmd.Add(0x48);
+                            // push address
+                            cmd.Add(0xAF); cmd.Add(0x2C); cmd.Add(0x05); cmd.Add(0xF9);
+                            cmd.Add(0x48);
+                            cmd.Add(0xAF); cmd.Add(0x2D); cmd.Add(0x05); cmd.Add(0xF9);
+                            cmd.Add(0x48);
+                            // set control
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte(lowByte ? 0x00 : 0x80));
+                            cmd.Add(0x8F); cmd.Add(0x15); cmd.Add(0x21); cmd.Add(0x00);
+                            // set address
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 0) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x16); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 8) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x17); cmd.Add(0x21); cmd.Add(0x00);
+                            // get data
+                            cmd.Add(0xAF); cmd.Add(Convert.ToByte(lowByte ? 0x3A : 0x39)); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x48);
+                            cmd.Add(0xAF); cmd.Add(Convert.ToByte(lowByte ? 0x39 : 0x3A)); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x48);
+                            // set address
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 0) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x16); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 8) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x17); cmd.Add(0x21); cmd.Add(0x00);
+                            // set control
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte(lowByte ? 0x80 : 0x00));
+                            cmd.Add(0x8F); cmd.Add(0x15); cmd.Add(0x21); cmd.Add(0x00);
+                            // pull modified data
+                            cmd.Add(0x68);
+                        }
+                        else if (_region == 4)
+                        {
+                            // CGRAM
+                            var address = he.index >> 1;
+                            var lowByte = (he.index & 0x1) == 0;
+
+                            // push address
+                            cmd.Add(0xAF); cmd.Add(0x42); cmd.Add(0x05); cmd.Add(0xF9);
+                            cmd.Add(0x48);
+                            // set address
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 0) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x21); cmd.Add(0x21); cmd.Add(0x00);
+                            // get data
+                            cmd.Add(0xAF); cmd.Add(0x3B); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xEB);
+                            cmd.Add(0xAF); cmd.Add(0x3B); cmd.Add(0x21); cmd.Add(0x00);
+                            if (lowByte) cmd.Add(0xEB);
+                            cmd.Add(0x48);
+                            // set address
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 0) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x21); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x68);
+                        }
+                        else if (_region == 5)
+                        {
+                            // OAM
+                            var address = he.index >> 1;
+                            var lowByte = (he.index & 0x1) == 0;
+
+                            // push address
+                            cmd.Add(0xAF); cmd.Add(0x04); cmd.Add(0x05); cmd.Add(0xF9);
+                            cmd.Add(0x48);
+                            cmd.Add(0xAF); cmd.Add(0x06); cmd.Add(0x05); cmd.Add(0xF9);
+                            cmd.Add(0x48);
+                            // set address
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 0) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x02); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 8) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x03); cmd.Add(0x21); cmd.Add(0x00);
+                            // get data
+                            cmd.Add(0xAF); cmd.Add(0x38); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xEB);
+                            cmd.Add(0xAF); cmd.Add(0x38); cmd.Add(0x21); cmd.Add(0x00);
+                            if (lowByte) cmd.Add(0xEB);
+                            cmd.Add(0x48);
+                            // set address
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 0) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x02); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xA9); cmd.Add(Convert.ToByte((address >> 8) & 0xFF));
+                            cmd.Add(0x8F); cmd.Add(0x03); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x68);
+                        }
+
+                        // AND #$F0
+                        cmd.Add(0x29); cmd.Add(Convert.ToByte(he.cp == 1 ? 0xF0 : 0x0F));
+                        // ORA #$DATA
+                        cmd.Add(0x09); cmd.Add(Convert.ToByte((he.cp == 1 ? 0x0F : 0xF0) & he.value));
+
+                        if (_region == 1)
+                        {
+                            var address = he.index;
+                            // STA.l $7E0000+addr
+                            cmd.Add(0x8F); cmd.Add(Convert.ToByte((address >> 0) & 0xFF)); cmd.Add(Convert.ToByte((address >> 8) & 0xFF)); cmd.Add(Convert.ToByte((address >> 16) & 0xFF));
+                        }
+                        else if (_region == 2)
+                        {
+                            var lowByte = (he.index & 0x1) == 0;
+
+                            // write data
+                            cmd.Add(0x8F); cmd.Add(Convert.ToByte(lowByte ? 0x18 : 0x19)); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(Convert.ToByte(lowByte ? 0x19 : 0x18)); cmd.Add(0x21); cmd.Add(0x00);
+                            // restore address
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(0x17); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(0x16); cmd.Add(0x21); cmd.Add(0x00);
+                            // restore control
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(0x15); cmd.Add(0x21); cmd.Add(0x00);
+                        }
+                        else if (_region == 4)
+                        {
+                            var lowByte = (he.index & 0x1) == 0;
+
+                            // write data
+                            if (!lowByte) cmd.Add(0xEB);
+                            cmd.Add(0x8F); cmd.Add(0x22); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xEB);
+                            cmd.Add(0x8F); cmd.Add(0x22); cmd.Add(0x21); cmd.Add(0x00);
+                            // restore address
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(0x21); cmd.Add(0x21); cmd.Add(0x00);
+                        }
+                        else if (_region == 5)
+                        {
+                            var lowByte = (he.index & 0x1) == 0;
+
+                            // write data
+                            if (!lowByte) cmd.Add(0xEB);
+                            cmd.Add(0x8F); cmd.Add(0x04); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0xEB);
+                            cmd.Add(0x8F); cmd.Add(0x04); cmd.Add(0x21); cmd.Add(0x00);
+                            // restore address
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(0x03); cmd.Add(0x21); cmd.Add(0x00);
+                            cmd.Add(0x68);
+                            cmd.Add(0x8F); cmd.Add(0x02); cmd.Add(0x21); cmd.Add(0x00);
+                        }
+
+                        // LDA #$00
+                        cmd.Add(0xA9); cmd.Add(0x00);
+                        // STA.l $002C00
+                        cmd.Add(0x8F); cmd.Add(0x00); cmd.Add(0x2C); cmd.Add(0x00);
+                        // PLA
+                        cmd.Add(0x68);
+                        // XBA
+                        cmd.Add(0xEB);
+                        // PLA
+                        cmd.Add(0x68);
+                        // PLP
+                        cmd.Add(0x28);
+                        // JMP ($FFEA)
+                        cmd.Add(0x6C); cmd.Add(0xEA); cmd.Add(0xFF);
+
+                        RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CMD", Operands = new List<string>(new string[] { 0x002C00.ToString("X"), cmd.Count.ToString("X"), 0x002C00.ToString("X"), 1.ToString("X") }) };
+                        // Perform first byte last
+                        cmd.Add(cmd[0]); cmd[0] = 0x0;
+                        _ws.Send(serializer.Serialize(req));
+                        _ws.Send(cmd.ToArray());
+                    }
+                }
+                catch (Exception x)
+                {
+
+                }
+                finally
+                {
+                    Monitor.Exit(_timerLock);
+                }
             }
         }
 
         private void HandleException(Exception x)
         {
-            //_timer.Enabled = false;
             toolStripStatusLabel1.Text = x.Message.ToString();
-            ////core.Disconnect();
-            //_ws.CloseAsync(WebSocketCloseStatus.InternalServerError, "Client exception", CancellationToken.None).Wait(3000);
             _ws.Close();
-            // reset socket state
-            //_ws = new ClientWebSocket();
             pictureConnected.Image = Resources.bullet_red;
-            //pictureConnected.Refresh();
         }
 
         private void GetDataAndResetHead()
         {
             if (_ws.ReadyState != WebSocketState.Open) return;
-            /*
-                        if (_queue.Count() != 0)
-                        {
-                            byte[] tBuffer = new byte[512];
-                            int size = (int)core.SendCommand(core.e.GET, core.e.SNES, core.e.NONE, (uint)0xF9EFF4, (uint)0x4);
-                            int queueSize = 0;
-                            while (queueSize < size)
-                            {
-                                queueSize += core.GetData(tBuffer, queueSize, 512 - (queueSize % 512));
-                            }
-                            sendQHeadPtr = ((tBuffer[0x1] << 8) | (tBuffer[0x0])) & 0x7FC;
-                            sendQTailPtr = ((tBuffer[0x3] << 8) | (tBuffer[0x2])) & 0x7FC;
 
-                            // check if we need to make any updates
-                            while (_queue.Count() != 0)
-                            {
-                                // exit if we filled up the queue
-                                if (((sendQTailPtr + 4) & 0x7FC) == sendQHeadPtr) break;
-
-                                var d = _queue.Dequeue();
-                                var b = d.Item2;
-                                Array.Clear(tBuffer, 0, tBuffer.Length);
-                                long addr = 0x7E0000 + b.index;
-                                tBuffer[0] = Convert.ToByte((addr >> 16) & 0xFF);
-                                tBuffer[1] = b.value;
-                                tBuffer[2] = Convert.ToByte((addr >> 0) & 0xFF);
-                                tBuffer[3] = Convert.ToByte((addr >> 8) & 0xFF);
-                                core.SendCommand(core.e.PUT, core.e.SNES, core.e.NONE, (uint)(0xF9F800 + sendQTailPtr), (uint)4);
-                                core.SendData(tBuffer, 4);
-
-                                sendQTailPtr = (sendQTailPtr + 4) & 0x7FC;
-                            }
-
-                            // advance tail pointer
-                            Array.Clear(tBuffer, 0, tBuffer.Length);
-                            // snes is little endian
-                            tBuffer[0] = Convert.ToByte((sendQTailPtr >> 0) & 0xFF);
-                            tBuffer[1] = Convert.ToByte((sendQTailPtr >> 8) & 0xFF);
-
-                            core.SendCommand(core.e.PUT, core.e.SNES, core.e.NONE, (uint)0xF9EFF6, (uint)0x2);
-                            core.SendData(tBuffer, 2);
-                        }
-            */
-
-            ////int fileSize = (int)core.SendCommand(core.e.GET, (_region == 9 ? core.e.MSU : core.e.SNES), core.e.NONE, (uint)_regionBase, (uint)_regionSize);
-            //_ev.Reset();
             RequestType req = new RequestType();
             req.Opcode = OpcodeType.GetAddress.ToString();
-            req.Space = _region == 9 ? "MSU" : "SNES";
+            req.Space = _region == 10 ? "CMD" : _region == 9 ? "MSU" : "SNES";
             req.Operands = new List<string>(new string[] { _regionBase.ToString("X"), _regionSize.ToString("X") });
-            //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
             _ws.Send(serializer.Serialize(req));
             if (WaitHandle.WaitAny(_waitHandles) != 0) return;
-
-            //var rsp = GetResponse(_regionSize);
-            //Array.Copy(rsp.Item2, _memory, _regionSize);
 
             for (uint i = 0; i < _regionSize; i++)
             {
@@ -468,13 +622,7 @@ namespace usb2snes
 
         // poll for reading SNES
         private System.Timers.Timer _timer = new System.Timers.Timer();
-        //private System.Windows.Forms.Timer _timer = new System.Windows.Forms.Timer();
         private object _timerLock = new object();
-
-        // queue
-        private int sendQTailPtr = 0, sendQHeadPtr = 0;
-
-        struct ByteChange { public long index; public byte value; }
 
         private void buttonExport_Click(object sender, EventArgs e)
         {
@@ -570,11 +718,6 @@ namespace usb2snes
             }
         }
 
-        //private void ws_DataReceived(object sender, DataReceivedEventArgs e)
-        //{
-        //    Array.Copy(e.Data, _memory, _regionSize);
-        //    _ev.Set();
-        //}
 
         private void ws_Error(object sender, EventArgs e)
         {
@@ -590,7 +733,6 @@ namespace usb2snes
         {
             _offset = 0;
             _ev.Reset();
-            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client disconnected", CancellationToken.None).Wait(3000);
             if (_ws != null && _ws.ReadyState == WebSocketState.Open)
             {
                 _ws.Close();
@@ -599,30 +741,17 @@ namespace usb2snes
             }
             _ws = new WebSocket("ws://localhost:8080/");
             _ws.Log.Output = (_, __) => { };
-            //_ws.Opened += new EventHandler(ws_Opened);
             _ws.OnOpen += ws_Opened;
-            //_ws.DataReceived += new EventHandler<DataReceivedEventArgs>(ws_DataReceived);
             _ws.OnMessage += ws_MessageReceived;
-            //_ws.MessageReceived += new EventHandler<MessageReceivedEventArgs>(ws_MessageReceived);
-            //_ws.Closed += new EventHandler(ws_Closed);
             _ws.OnClose += ws_Closed;
             _ws.OnError += ws_Error;
-            //_ws.NoDelay = true;
-
-            //_ws.Connect();
-            //if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
             _ws.WaitTime = TimeSpan.FromSeconds(4);
             _ws.Connect();
             if (_ws.ReadyState != WebSocketState.Open && _ws.ReadyState != WebSocketState.Connecting) throw new Exception("Connection timeout");
 
             _ev.Reset();
-            //_ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", CancellationToken.None);
-            //_ws = new ClientWebSocket();
-            //if (!_ws.ConnectAsync(new Uri("ws://localhost:8080/"), CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
         }
 
-        CommunicationQueue<ByteChange> _queue = new CommunicationQueue<ByteChange>();
-        //ClientWebSocket _ws = new ClientWebSocket();
         WebSocket _ws = new WebSocket("ws://localhost:8080/");
         ResponseType _rsp = new ResponseType();
         ManualResetEvent _ev = new ManualResetEvent(false);

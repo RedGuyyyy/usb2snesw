@@ -50,6 +50,8 @@ namespace WindowsFormsApplication1
         static void Main()
         {
             if (!SingleInstance.Start()) { return; }
+
+            log4net.Config.XmlConfigurator.Configure();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             try

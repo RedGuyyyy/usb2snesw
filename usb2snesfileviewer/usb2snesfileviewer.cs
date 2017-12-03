@@ -655,7 +655,7 @@ namespace usb2snes
                             string fileName = openFileDialog1.FileNames[i];
                             string safeFileName = openFileDialog1.SafeFileNames[i];
 
-                            applyPatch(fileName, safeFileName);
+                            sendPatch(fileName, safeFileName);
                         }
                     }
                 }
@@ -832,7 +832,7 @@ namespace usb2snes
                                 string fileName = openFileDialog1.FileNames[i];
                                 string safeFileName = openFileDialog1.SafeFileNames[i];
 
-                                applyPatch(fileName, safeFileName);
+                                sendPatch(fileName, safeFileName);
                             }
 
                             // perform reset
@@ -1031,53 +1031,46 @@ namespace usb2snes
             }
         }
 
-        private void applyPatch(string fileName, string safeFileName)
+        private void sendPatch(string fileName, string safeFileName)
         {
             for (int i = 0; i < openFileDialog1.FileNames.Length; i++)
             {
-                IPS ips = new IPS();
-                ips.Parse(fileName);
+                FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
 
                 byte[] tBuffer = new byte[Constants.MaxMessageSize];
                 int curSize = 0;
 
-                // send write command
-                int patchNum = 0;
-                foreach (var patch in ips.Items)
+                RequestType req = new RequestType()
                 {
-                    RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(),
-                                                          Space = "SNES",
-                                                          Operands = new List<string>(new string[] { patch.address.ToString("X"), patch.data.Count.ToString("X") }),
-                                                          Flags = new List<string>(new string[] { (patchNum == 0 && i == 0) ? "CLRX" : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? "SETX" : "NONE" })
-                                                          };
-                    //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    _ws.Send(serializer.Serialize(req));
+                    Opcode = OpcodeType.PutIPS.ToString(),
+                    Space = "SNES",
+                    Operands = new List<string>(new string[] { "hook", fs.Length.ToString("X") }),
+                    //Flags = new List<string>(new string[] { (patchNum == 0 && i == 0) ? "CLRX" : (patchNum == ips.Items.Count - 1 && i == openFileDialog1.FileNames.Length - 1) ? "SETX" : "NONE" })
+                };
+                _ws.Send(serializer.Serialize(req));
 
-                    // write data
+                // write data
+                curSize = 0;
+                toolStripProgressBar1.Value = 0;
+                toolStripProgressBar1.Enabled = true;
+                toolStripStatusLabel1.Text = "uploading ram: " + safeFileName;
+
+                while (curSize < fs.Length)
+                {
+                    int bytesToWrite = Math.Min(Constants.MaxMessageSize, (int)fs.Length - curSize);
                     Array.Clear(tBuffer, 0, tBuffer.Length);
-                    curSize = 0;
-                    toolStripProgressBar1.Value = 0;
-                    toolStripProgressBar1.Enabled = true;
-                    toolStripStatusLabel1.Text = "uploading ram: " + safeFileName;
+                    fs.Read(tBuffer, 0, bytesToWrite);
+                    //Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
 
-                    while (curSize < patch.data.Count)
-                    {
-                        int bytesToWrite = Math.Min(Constants.MaxMessageSize, patch.data.Count - curSize);
-                        Array.Clear(tBuffer, 0, tBuffer.Length);
-                        Array.Copy(patch.data.ToArray(), curSize, tBuffer, 0, bytesToWrite);
+                    curSize += bytesToWrite;
+                    // need to limit the segment size to send correct amount
+                    //if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= patch.data.Count, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                    _ws.Send(new ArraySegment<byte>(tBuffer, 0, bytesToWrite).ToArray());
 
-                        curSize += bytesToWrite;
-                        // need to limit the segment size to send correct amount
-                        //if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, bytesToWrite), WebSocketMessageType.Binary, curSize >= patch.data.Count, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                        _ws.Send(new ArraySegment<byte>(tBuffer, 0, bytesToWrite).ToArray());
-
-                        toolStripProgressBar1.Value = 100 * curSize / patch.data.Count;
-                    }
-                    toolStripStatusLabel1.Text = "idle";
-                    toolStripProgressBar1.Enabled = false;
-
-                    patchNum++;
+                    toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                 }
+                toolStripStatusLabel1.Text = "idle";
+                toolStripProgressBar1.Enabled = false;
             }
         }
 
@@ -1346,114 +1339,6 @@ namespace usb2snes
         private void refreshToolStripMenuItem1_Click(object sender, EventArgs e)
         {
             RefreshListViewLocal();
-        }
-
-        private class IPS
-        {
-            public IPS() { Items = new List<Patch>(); }
-
-            public class Patch
-            {
-                public Patch() { data = new List<Byte>(); }
-
-                public int address; // 24b file address
-                public List<Byte> data;
-            }
-
-            public List<Patch> Items;
-
-            public void Parse(string fileName)
-            {
-                int index = 0;
-
-                FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-                // make sure the first few characters match string
-                byte[] buffer = new byte[512];
-
-                System.Text.UTF8Encoding enc = new System.Text.UTF8Encoding();
-                fs.Read(buffer, 0, 5);
-                for (int i = 0; i < 5; i++)
-                {
-                    if (buffer[i] != enc.GetBytes("PATCH")[i])
-                        throw new Exception("IPS: error parsing PATCH");
-                }
-                index += 5;
-
-                bool foundEOF = false;
-                while (!foundEOF)
-                {
-                    int bytesRead = 0;
-
-                    // read address
-                    bytesRead = fs.Read(buffer, 0, 3);
-                    // check EOF
-                    if (index == fs.Length - 3 || index == fs.Length - 6)
-                    {
-                        foundEOF = true;
-                        // check for EOF
-                        for (int i = 0; i < 3; i++)
-                        {
-                            if (buffer[i] != enc.GetBytes("EOF")[i])
-                            {
-                                foundEOF = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!foundEOF)
-                    {
-                        Patch patch = new Patch();
-                        Items.Add(patch);
-
-                        // get address
-                        if (bytesRead != 3) throw new Exception("IPS: error parsing address");
-                        patch.address = buffer[0]; patch.address <<= 8;
-                        patch.address |= buffer[1]; patch.address <<= 8;
-                        patch.address |= buffer[2]; patch.address <<= 0;
-                        index += bytesRead;
-
-                        // get length
-                        bytesRead = fs.Read(buffer, 0, 2);
-                        if (bytesRead != 2) throw new Exception("IPS: error parsing length");
-                        int length = buffer[0]; length <<= 8;
-                        length |= buffer[1]; length <<= 0;
-                        index += bytesRead;
-
-                        // check if RLE
-                        if (length == 0)
-                        {
-                            // RLE
-                            bytesRead = fs.Read(buffer, 0, 3);
-                            if (bytesRead != 3) throw new Exception("IPS: error parsing RLE count/byte");
-                            int count = buffer[0]; count <<= 8;
-                            count |= buffer[1]; count <<= 0;
-                            Byte val = buffer[2];
-                            index += bytesRead;
-
-                            patch.data.AddRange(Enumerable.Repeat(val, count));
-                        }
-                        else
-                        {
-                            int count = 0;
-                            while (count < length)
-                            {
-                                bytesRead = fs.Read(buffer, 0, Math.Min(buffer.Length, length - count));
-                                if (bytesRead == 0) throw new Exception("IPS: error parsing data");
-                                count += bytesRead;
-                                index += bytesRead;
-                                patch.data.AddRange(buffer.Take(bytesRead));
-                            }
-                        }
-                    }
-                }
-
-                // ignore truncation
-                if (index != fs.Length && index != fs.Length - 3)
-                    throw new Exception("IPS: unexpected end of file");
-
-                fs.Close();
-            }
         }
 
         private void buttonSoftReset_Click(object sender, EventArgs e)
