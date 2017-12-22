@@ -690,7 +690,7 @@ namespace usb2snes
             // update visual
             for (uint i = 0; i < 0x2000; i++)
             {
-                _provider.WriteByte(i, _memory[i]);
+                _provider.WriteByte(i, _memory[i], 0);
             }
             this.Invoke(new Action(() => { RefreshMemoryView(); }));
             

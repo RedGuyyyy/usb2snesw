@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using usb2snes.utils;
+using WebSocketSharp;
 
 // The bridge is based on a tooltray app for reading the hosts file.  The original license and other details provided below.
 
@@ -53,10 +54,12 @@ namespace usb2snes
         private Dictionary<string, IEnumerable<ServerGroup>> projectDict = new Dictionary<string, IEnumerable<ServerGroup>>();
         private List<core.Port> hostFileData;
         private readonly NotifyIcon notifyIcon;
+        private SortedDictionary<string, usb2snes.Server.Scheduler> _ports;
 
-        public HostManager(NotifyIcon notifyIcon)
+        public HostManager(NotifyIcon notifyIcon, SortedDictionary<string, usb2snes.Server.Scheduler> ports)
         {
             this.notifyIcon = notifyIcon;
+            this._ports = ports;
         }
 
         public bool IsDecorated { get; private set; }
@@ -81,6 +84,18 @@ namespace usb2snes
                     .Select(serverGroup => ToolStripMenuItemWithHandler(
                         serverGroup.Name, serverGroup.EnabledCount, serverGroup.DisabledCount, serverGroupItem_Click))
                     .ToArray());
+
+            // add connections
+            lock (_ports)
+            {
+                foreach (var sd2snes in menuItem.DropDownItems)
+                {
+                    var t = (ToolStripMenuItem)sd2snes;
+                    if (_ports.ContainsKey(sd2snes.ToString()) && _ports[sd2snes.ToString()] != null && _ports[sd2snes.ToString()].Clients != null)
+                        foreach (var s in _ports[sd2snes.ToString()].Clients) t.DropDownItems.Add(" Name: " + s.Value.Name + " [" + s.Value.ID.ToString() + "]");
+                }
+            }
+
             return menuItem;
         }
 

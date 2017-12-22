@@ -289,7 +289,7 @@ namespace usb2snes
             {
                 Connect();
 
-                RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
+                var req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
                 _ws.Send(serializer.Serialize(req));
                 if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
                 _ev.Reset();
@@ -369,7 +369,7 @@ namespace usb2snes
                         _ws.Send(new Byte[] { he.value });
 
                     }
-                    if (_region == 10)
+                    else if (_region == 10)
                     {
                         // RAM
                         var address = 0x2A00 + he.index;
@@ -570,6 +570,17 @@ namespace usb2snes
                         cmd.Add(cmd[0]); cmd[0] = 0x0;
                         _ws.Send(serializer.Serialize(req));
                         _ws.Send(cmd.ToArray());
+
+                        // FIXME: check for byte to be 0
+                        //var oldRegionSize = _regionSize;
+                        //_regionSize = 1;
+                        //do
+                        //{
+                        //    RequestType req2 = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "CMD", Operands = new List<string>(new string[] { 0x002C00.ToString("X"), 1.ToString("X") }) };
+                        //    _ws.Send(serializer.Serialize(req2));
+                        //    if (WaitHandle.WaitAny(_waitHandles) != 0) break;
+                        //} while (_memory[0] != 0x0);
+                        //_regionSize = oldRegionSize;
                     }
                 }
                 catch (Exception x)
@@ -599,7 +610,7 @@ namespace usb2snes
             req.Space = _region == 10 ? "CMD" : _region == 9 ? "MSU" : "SNES";
             req.Operands = new List<string>(new string[] { _regionBase.ToString("X"), _regionSize.ToString("X") });
             _ws.Send(serializer.Serialize(req));
-            if (WaitHandle.WaitAny(_waitHandles) != 0) return;
+            if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
 
             for (uint i = 0; i < _regionSize; i++)
             {
@@ -695,7 +706,7 @@ namespace usb2snes
 
         private void ws_Opened(object sender, EventArgs e)
         {
-            _ev.Set();
+            //_ev.Set();
         }
 
         private void ws_MessageReceived(object sender, MessageEventArgs e)
@@ -726,7 +737,7 @@ namespace usb2snes
 
         private void ws_Closed(object sender, EventArgs e)
         {
-            _ev.Set();
+            //_ev.Set();
         }
 
         private void Connect()
@@ -736,7 +747,7 @@ namespace usb2snes
             if (_ws != null && _ws.ReadyState == WebSocketState.Open)
             {
                 _ws.Close();
-                if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
+                //if (WaitHandle.WaitAny(_waitHandles, 1000) != 0) return;
                 _ev.Reset();
             }
             _ws = new WebSocket("ws://localhost:8080/");
@@ -748,6 +759,9 @@ namespace usb2snes
             _ws.WaitTime = TimeSpan.FromSeconds(4);
             _ws.Connect();
             if (_ws.ReadyState != WebSocketState.Open && _ws.ReadyState != WebSocketState.Connecting) throw new Exception("Connection timeout");
+
+            RequestType req = new RequestType() { Opcode = OpcodeType.Name.ToString(), Space = "SNES", Operands = new List<string>(new string[] { "MemoryViewer" }) };
+            _ws.Send(serializer.Serialize(req));
 
             _ev.Reset();
         }

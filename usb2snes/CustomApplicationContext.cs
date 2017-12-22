@@ -3,14 +3,13 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using System.Reflection;
-using System.Net.WebSockets;
 using System.IO;
 
 using WindowsFormsApplication1;
 using System.Collections.Generic;
 
 using usb2snes.Properties;
-
+using WebSocketSharp;
 using System.Runtime.InteropServices;
 
 /*
@@ -67,8 +66,8 @@ namespace usb2snes
         private static readonly string DefaultTooltip = "Route HOST entries via context menu";
         private readonly HostManager hostManager;
         private readonly ClientManager clientManager;
-
         private readonly Server server;
+        private SortedDictionary<string, Server.Scheduler> _ports = new SortedDictionary<string, Server.Scheduler>();
 
         /// <summary>
 		/// This class should be created and passed into Application.Run( ... )
@@ -76,13 +75,13 @@ namespace usb2snes
 		public CustomApplicationContext() 
 		{
 			InitializeContext();
-            hostManager = new HostManager(notifyIcon);
+            hostManager = new HostManager(notifyIcon, _ports);
             hostManager.BuildServerAssociations();
             //if (!hostManager.IsDecorated) { ShowIntroForm(); }
             clientManager = new ClientManager(notifyIcon);
             clientManager.BuildClientAssociations();
 
-            server = new Server();
+            server = new Server(_ports);
             server.Start();
 
             //AutoUpdate();

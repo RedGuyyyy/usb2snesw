@@ -21,6 +21,7 @@ namespace usb2snes
         DeviceList, // Request: Operands: null,                                   Response: Operands[stringList]
         Attach,     // Request: Operands: [COM#],                                 NoResponse
         AppVersion, // Request: Operands: null,                                   Response: Operands[stringList]
+        Name,       // Request: Operands: [name],                                 NoResponse
 
         // Special
         Info,       // Request: Operands: null,                                   Response: Result: [versionString, version#]

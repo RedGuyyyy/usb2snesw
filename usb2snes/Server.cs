@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Script.Serialization;
+using System.Security.Cryptography;
 //using System.Net.WebSockets;
 using System.Net;
 
@@ -30,13 +31,13 @@ namespace usb2snes
         SocketServer _h;
         Thread _t;
 
-        private class RequestQueueElementType {
+        public class RequestQueueElementType {
             public RequestType Request { get; set; }
 
             public ClientSocket Socket { get; set; }
         }
 
-        private class ResponseQueueElementType
+        public class ResponseQueueElementType
         {
             public ResponseType Response { get; set; }
             public Byte[] Data { get; set; }
@@ -45,9 +46,9 @@ namespace usb2snes
         }
 
         // main server
-        public Server()
+        public Server(SortedDictionary<string, Scheduler> ports)
         {
-            _h = new SocketServer();
+            _h = new SocketServer(ports);
         }
 
         public void Start()
@@ -71,14 +72,15 @@ namespace usb2snes
             /// <summary>
             /// tracks the com port to scheduler mapping
             /// </summary>
-            private SortedDictionary<string, Scheduler> _ports = new SortedDictionary<string, Scheduler>();
+            private SortedDictionary<string, Scheduler> _ports;
             AutoResetEvent _ev = new AutoResetEvent(false);
 
             //private HttpListener _l = new HttpListener();
             //private List<Thread> _t = new List<Thread>();
 
-            public SocketServer()
+            public SocketServer(SortedDictionary<string, Scheduler> ports)
             {
+                _ports = ports;
             }
 
             public void Start()
@@ -106,7 +108,7 @@ namespace usb2snes
                     {
                         lock (p.Value.Clients)
                         {
-                            foreach (var c in p.Value.Clients)
+                            foreach (var c in p.Value.Clients.ToList())
                             {
                                 c.Value.Context.WebSocket.Close();
                             }
@@ -121,8 +123,8 @@ namespace usb2snes
             {
                 if (Settings.Default.AutoUpdate && Directory.Exists("sd2snes") && File.Exists("sd2snes/firmware.img"))
                 {
-                    var f = File.OpenRead("sd2snes/firmware.img");
                     Byte[] buffer = new Byte[512];
+                    var f = File.OpenRead("sd2snes/firmware.img");
                     f.Read(buffer, 0, 8);
                     f.Close();
                     uint magic = BitConverter.ToUInt32(buffer, 4);
@@ -133,6 +135,7 @@ namespace usb2snes
                         {
                             core c = new core();
                             c.Connect(d.Name);
+                            c.ClearData();
 
                             var rsp = (List<string>)c.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.SNES, usbint_server_flags_e.NONE);
                             var version = uint.Parse(rsp[1], System.Globalization.NumberStyles.HexNumber);
@@ -186,11 +189,12 @@ namespace usb2snes
         /// <summary>
         /// Socket manages the socket connection and inserts new commands into the CommunicationQueue for the Scheduler to execute.
         /// </summary>
-        private class ClientSocket : WebSocketBehavior
+        public class ClientSocket : WebSocketBehavior
         {
             private SortedDictionary<string, Scheduler> _ports;
             private string _portName = "";
             private JavaScriptSerializer serializer = new JavaScriptSerializer();
+            public string Name { get; private set; }
 
             private static readonly ILog log = LogManager.GetLogger(typeof(ClientSocket));
 
@@ -208,6 +212,7 @@ namespace usb2snes
                 //DataQueue = new CommunicationQueue<Byte[]>();
                 DataQueue = new BlockingCollection<Byte[]>();
                 //DataEvent = new AutoResetEvent(false);
+                Name = "Unknown";
             }
 
             protected override void OnOpen()
@@ -219,12 +224,28 @@ namespace usb2snes
             protected override void OnClose(CloseEventArgs e)
             {
                 log.Info("OnClose: " + ID + ": " + GetHashCode());
+
+                lock (_ports)
+                {
+                    if (_ports.ContainsKey(_portName))
+                        lock (_ports[_portName].Clients)
+                            _ports[_portName].Clients.Remove(GetHashCode());
+                }
+
                 base.OnClose(e);
             }
 
             protected override void OnError(WebSocketSharp.ErrorEventArgs e)
             {
                 log.Info("OnError: " + ID + ": " + GetHashCode());
+
+                lock (_ports)
+                {
+                    if (_ports.ContainsKey(_portName))
+                        lock (_ports[_portName].Clients)
+                            _ports[_portName].Clients.Remove(GetHashCode());
+                }
+
                 base.OnError(e);
             }
 
@@ -240,7 +261,12 @@ namespace usb2snes
                     log.Info(messageString);
 
                     var opcode = (OpcodeType)Enum.Parse(typeof(OpcodeType), req.Opcode);
-                    if (opcode == OpcodeType.DeviceList)
+
+                    if (opcode == OpcodeType.Name)
+                    {
+                        if (req.Operands.Count > 0) Name = req.Operands[0];
+                    }
+                    else if (opcode == OpcodeType.DeviceList)
                     {
                         ResponseType rsp = new ResponseType();
                         rsp.Results = new List<string>();
@@ -267,40 +293,40 @@ namespace usb2snes
                             if (_ports.ContainsKey(_portName))
                                 lock (_ports[_portName].Clients)
                                     _ports[_portName].Clients.Remove(GetHashCode());
-                        }
 
-                        // setup comport if it doesn't already exist
-                        var d = core.GetDeviceList();
-                        foreach (var c in d)
-                        {
-                            if (c.Name == req.Operands[0])
+                            // setup comport if it doesn't already exist
+                            var d = core.GetDeviceList();
+                            foreach (var c in d)
                             {
-                                // assign new name
-                                _portName = req.Operands[0];
-
-                                // test if new
-                                lock (_ports)
+                                if (c.Name == req.Operands[0])
                                 {
-                                    if (!_ports.ContainsKey(_portName))
+                                    // assign new name
+                                    _portName = req.Operands[0];
+
+                                    // test if new
+                                    lock (_ports)
                                     {
-                                        try
+                                        if (!_ports.ContainsKey(_portName))
                                         {
-                                            var s = new Scheduler(_portName, _ports);
-                                            _ports.Add(_portName, s);
+                                            try
+                                            {
+                                                var s = new Scheduler(_portName, _ports);
+                                                _ports.Add(_portName, s);
+                                            }
+                                            catch (Exception x)
+                                            {
+                                                // close the socket if there is a failure
+                                                log.Error("Unable to create new port: " + req.Operands[0]);
+                                                Context.WebSocket.Close();
+                                                return;
+                                            }
                                         }
-                                        catch (Exception x)
-                                        {
-                                            // close the socket if there is a failure
-                                            log.Error("Unable to create new port: " + req.Operands[0]);
-                                            Context.WebSocket.Close();
-                                            return;
-                                        }
+
+                                        lock (_ports[_portName].Clients) lock (_ports[_portName].Clients) _ports[_portName].Clients.Add(GetHashCode(), this);
                                     }
 
-                                    lock (_ports[_portName].Clients) lock (_ports[_portName].Clients) _ports[_portName].Clients.Add(GetHashCode(), this);
+                                    break;
                                 }
-
-                                break;
                             }
                         }
                     }
@@ -316,7 +342,15 @@ namespace usb2snes
                             }
                             var port = _ports[_portName];
                             //port.Queue.Enqueue(new RequestQueueElementType() { Request = req, Socket = this });
-                            port.Queue.Add(new RequestQueueElementType() { Request = req, Socket = this });
+
+                            try
+                            {
+                                port.Queue.Add(new RequestQueueElementType() { Request = req, Socket = this });
+                            }
+                            catch(Exception x)
+                            {
+                                // do nothing if we can add the request
+                            }
                         }
 
                         // if this is a data operation then wait until all data is sent back
@@ -332,7 +366,7 @@ namespace usb2snes
                                 {
                                     t = Queue.Take();
                                 }
-                                catch(Exception x)
+                                catch (Exception x)
                                 {
                                     done = true;
                                 }
@@ -371,6 +405,8 @@ namespace usb2snes
                     // FIXME back pressure so the transfer isn't instantaneous.
                     Byte[] data = (Byte[])e.RawData.Clone();
                     DataQueue.Add(data);
+                    // FIXME: busy-wait.
+                    //while (!DataQueue.TryAdd(data, 1)) { }
                 }
                 else if (e.Type == Opcode.Close)
                 {
@@ -388,7 +424,7 @@ namespace usb2snes
         /// Scheduler takes input from the socket threads via the CommunicationQueue and sends
         /// the request to USB via a serial port interface.
         /// </summary>
-        private class Scheduler
+        public class Scheduler
         {
             private core _p = new core();
             private SortedDictionary<string, Scheduler> _ports;
@@ -408,25 +444,7 @@ namespace usb2snes
                 Queue = new BlockingCollection<RequestQueueElementType>();
                 Clients = new Dictionary<int, ClientSocket>();
                 _p.Connect(name);
-                _p.Reset();
-                Byte[] buffer = new Byte[64];
-                // read out any remaining data
-                if (_p.serialPort.BytesToRead != 0)
-                {
-                    var timeout = _p.serialPort.ReadTimeout;
-                    try
-                    {
-                        _p.serialPort.ReadTimeout = 50;
-                        _p.serialPort.WriteTimeout = 50;
-                        while (true) _p.GetData(buffer, 0, 64);
-                    }
-                    catch (Exception e) { }
-                    finally
-                    {
-                        _p.serialPort.ReadTimeout = timeout;
-                        _p.serialPort.WriteTimeout = timeout;
-                    }
-                }
+                _p.ClearData();
                 _ports = ports;
 
                 _thr = new Thread(this.Run);
@@ -438,7 +456,8 @@ namespace usb2snes
             /// </summary>
             public void Run()
             {
-                JavaScriptSerializer serializer = new JavaScriptSerializer();
+                var serializer = new JavaScriptSerializer();
+                var md5 = MD5.Create();
 
                 while (!_stop)
                 {
@@ -634,10 +653,9 @@ namespace usb2snes
 
                                             recvCount += localRecvCount;
                                         }
-                                        //} catch(Exception e)
-                                        //{
-                                        //    int i = 0;
-                                        //}
+
+                                        log.Info("USB MD5: " + BitConverter.ToString(md5.ComputeHash(data, 0, totalSize)).Replace("-",""));
+
                                         break;
                                     }
                                 case OpcodeType.PutAddress:
@@ -732,6 +750,9 @@ namespace usb2snes
 
                                             sendCount += localSendCount;
                                         }
+
+                                        log.Info("USB MD5: " + BitConverter.ToString(md5.ComputeHash(data, 0, totalSize)).Replace("-", ""));
+
                                         break;
                                     }
                                 case OpcodeType.PutIPS:
@@ -949,15 +970,24 @@ namespace usb2snes
                                 lock (p.Clients)
                                 {
                                     // close all clients
-                                    foreach (var c in p.Clients) c.Value.Context.WebSocket.Close();
+                                    try
+                                    {
+                                        foreach (var c in p.Clients) c.Value.Context.WebSocket.Close();
 
-                                    // clear them out
-                                    p.Clients.Clear();
+                                        // clear them out
+                                        p.Clients.Clear();
+                                    }
+                                    catch (Exception x)
+                                    {
+                                        // Clients have been deleted
+                                    }
+
                                 }
 
                                 // remove the port so a new one needs to be created
                                 _ports.Remove(_p.PortName());
                             }
+
                             break;
                         }
 

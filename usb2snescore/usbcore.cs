@@ -139,7 +139,7 @@ namespace usb2snes {
             bool dtr = serialPort.DtrEnable;
             serialPort.DtrEnable = false;
             System.Threading.Thread.Sleep(500);
-            serialPort.DtrEnable = dtr;
+            //serialPort.DtrEnable = dtr;
         }
 
         public void Disconnect()
@@ -301,6 +301,19 @@ namespace usb2snes {
                         int v = (tBuffer[256] << 24) | (tBuffer[257] << 16) | (tBuffer[258] << 8) | (tBuffer[259] << 0);
                         s = v.ToString("X");
                         sL.Add(s);
+                        s = System.Text.Encoding.UTF8.GetString(tBuffer, 16, Array.IndexOf<byte>(tBuffer, 0, 16) - 16);
+                        sL.Add(s);
+                        Byte f = tBuffer[6];
+                        List<string> sList = new List<string>();
+                        if ((f & 0x01) != 0) sList.Add("FEAT_DSPX");
+                        if ((f & 0x02) != 0) sList.Add("FEAT_ST0010");
+                        if ((f & 0x04) != 0) sList.Add("FEAT_SRTC");
+                        if ((f & 0x08) != 0) sList.Add("FEAT_MSU1");
+                        if ((f & 0x10) != 0) sList.Add("FEAT_213F");
+                        if ((f & 0x20) != 0) sList.Add("FEAT_CMD_UNLOCK");
+                        if ((f & 0x40) != 0) sList.Add("FEAT_USB1");
+                        if ((f & 0x80) != 0) sList.Add("FEAT_DMA1");
+                        sL.Add(String.Join("|", sList));
                         ret = sL;
                         break;
                     }
@@ -381,6 +394,30 @@ namespace usb2snes {
         public int GetData(byte[] data, int offset, int length)
         {
             return serialPort.Read(data, offset, length);
+        }
+
+        public void ClearData()
+        {
+            Reset();
+            Byte[] buffer = new Byte[64];
+            // read out any remaining data
+            if (serialPort.BytesToRead != 0)
+            {
+                var timeout = serialPort.ReadTimeout;
+                try
+                {
+                    serialPort.ReadTimeout = 50;
+                    serialPort.WriteTimeout = 50;
+                    while (true) GetData(buffer, 0, 64);
+                }
+                catch (Exception e) { }
+                finally
+                {
+                    serialPort.ReadTimeout = timeout;
+                    serialPort.WriteTimeout = timeout;
+                }
+            }
+
         }
 
         public SerialPort serialPort;

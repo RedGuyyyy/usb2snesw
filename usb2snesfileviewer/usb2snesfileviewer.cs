@@ -81,7 +81,7 @@ namespace usb2snes
             }
         }
 
-        private void RefreshListViewRemote()
+        private void RefreshListViewRemote(bool extendTimeout = false)
         {
             connected = false;
 
@@ -97,7 +97,7 @@ namespace usb2snes
 
                     RequestType req = new RequestType() { Opcode = OpcodeType.List.ToString(), Space = "SNES", Operands = new List<string>(new string[] { remoteDir }) };
                     _ws.Send(serializer.Serialize(req));
-                    WaitSocket();
+                    WaitSocket(extendTimeout);
                     //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                     //var rsp = GetResponse();
 
@@ -116,9 +116,7 @@ namespace usb2snes
                 }
                 catch (Exception x)
                 {
-                    toolStripStatusLabel1.Text = x.Message.ToString();
-                    connected = false;
-                    EnableButtons(false);
+                    HandleException(x);
                 }
             }
         }
@@ -300,14 +298,11 @@ namespace usb2snes
                 if (_ws.ReadyState != WebSocketState.Open && _ws.ReadyState != WebSocketState.Connecting) throw new Exception("Connection timeout");
                 WaitSocket();
 
-                RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
+                RequestType req = new RequestType() { Opcode = OpcodeType.Name.ToString(), Space = "SNES", Operands = new List<string>(new string[] { "FileViewer" }) };
+                _ws.Send(serializer.Serialize(req));
+                req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
                 _ws.Send(serializer.Serialize(req));
                 WaitSocket();
-
-                //RequestType req = new RequestType() { Opcode = OpcodeType.DeviceList.ToString(), Space = "SNES" };
-                //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                //_ws.Send(serializer.Serialize(req));
-                //var rsp = GetResponse();
 
                 // get device list
                 foreach (var port in _rsp.Results)
@@ -318,12 +313,12 @@ namespace usb2snes
                     comboBoxPort.SelectedIndex = -1;
                     comboBoxPort.SelectedIndex = 0;
                 }
+
+                UpdateInfo();
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -338,10 +333,7 @@ namespace usb2snes
                 //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                 _ws.Send(serializer.Serialize(req));
 
-                req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
-                _ws.Send(serializer.Serialize(req));
-                WaitSocket();
-                labelVersion.Text = "Firmware Version: " + _rsp.Results[0] + " (0x" + _rsp.Results[1] + ")" ;
+                UpdateInfo();
 
                 req = new RequestType() { Opcode = OpcodeType.AppVersion.ToString(), Space = "SNES" };
                 _ws.Send(serializer.Serialize(req));
@@ -405,16 +397,13 @@ namespace usb2snes
                             fs.Close();
                         }
 
-                        RefreshListViewRemote();
+                        RefreshListViewRemote(true);
                     }
                 }
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                //_port.Disconnect();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -479,10 +468,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                //_port.Disconnect();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -514,14 +500,13 @@ namespace usb2snes
                             }
                         }
                     }
+
+                    UpdateInfo();
                 }
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                //_port.Disconnect();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -552,9 +537,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -587,9 +570,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -628,9 +609,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
 
         }
@@ -667,9 +646,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -731,9 +708,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -763,7 +738,8 @@ namespace usb2snes
                             string safeFileName = openFileDialog1.SafeFileNames[i];
 
                             FileStream fs = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-                            RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), fs.Length.ToString("X") }) };
+                            // include load request
+                            RequestType req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "SNES", Operands = new List<string>(new string[] { 0xF00000.ToString("X"), fs.Length.ToString("X"), 0xFC2001.ToString("X"), 1.ToString("X") }) };
                             //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                             _ws.Send(serializer.Serialize(req));
 
@@ -782,6 +758,7 @@ namespace usb2snes
                                 _ws.Send(new ArraySegment<byte>(tBuffer, 0, bytesToWrite).ToArray());
                                 toolStripProgressBar1.Value = 100 * curSize / (int)fs.Length;
                             }
+                            _ws.Send(new Byte[1] { 1 });
                             toolStripStatusLabel1.Text = "idle";
                             toolStripProgressBar1.Enabled = false;
 
@@ -794,9 +771,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
 
         }
@@ -808,8 +783,6 @@ namespace usb2snes
         /// <param name="e"></param>
         private void buttonTest_Click(object sender, EventArgs e)
         {
-            return;
-
             try
             {
                 if (connected)
@@ -872,31 +845,40 @@ namespace usb2snes
                     //        dataEnd = rsp.Item1;
                     //    } while (curSize < size);
                     //}
-                    //else if (false)
-                    //{
-                    //    // offset = 0xinvmask,data,regnum size = 0xvalue
-                    //    byte[] tBuffer = new byte[Constants.MaxMessageSize];
+                    else if (true)
+                    {
+                        // offset = 0xinvmask,data,regnum size = 0xvalue
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
 
-                    //    foreach (var config in new int[] { 0x004101, 0x008902, 0x008103, 0x000004, 0x000107, 0x000100 }) {
-                    //        var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
-                    //        if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    //        // dummy write
-                    //        if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    //    }
+                        //foreach (var config in new int[] { 0x004101, 0x008902, 0x008103, 0x000004, 0x000107, 0x000100 })
+                        //{
+                        //    var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
+                        //    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                        //    // dummy write
+                        //    if (!_ws.SendAsync(new ArraySegment<byte>(tBuffer, 0, 64), WebSocketMessageType.Binary, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                        //}
 
-                    //    foreach (var config in new int[] { 0x000001, 0x000000 })
-                    //    {
-                    //        var req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
-                    //        if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
-                    //        bool dataEnd = false;
-                    //        while (!dataEnd)
-                    //        {
-                    //            var rsp = GetData();
-                    //            dataEnd = rsp.Item1;
-                    //        }
-                    //    }
+                        //foreach (var config in new int[] { 0x000001, 0x000000 })
+                        //{
+                        //    var req = new RequestType() { Opcode = OpcodeType.GetAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x01.ToString("X") }) };
+                        //    if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
+                        //    bool dataEnd = false;
+                        //    while (!dataEnd)
+                        //    {
+                        //        var rsp = GetData();
+                        //        dataEnd = rsp.Item1;
+                        //    }
+                        //}
 
-                    //}
+                        // 0xMASK_DATA_INDEX, GROUP
+                        foreach (var config in new int[] { 0x000000, 0x002001 })
+                        {
+                            var req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x02.ToString("X") }) };
+                            _ws.Send(serializer.Serialize(req));
+                            // send dummy write
+                            _ws.Send(new ArraySegment<byte>(tBuffer, 0, 64).ToArray());
+                        }
+                    }
                     else if (false)
                     {
                         byte[] tBuffer = new byte[Constants.MaxMessageSize];
@@ -1029,10 +1011,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                //_port.Disconnect();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -1265,7 +1244,6 @@ namespace usb2snes
             {
                 refreshToolStripMenuItem1.Enabled = false;
                 makeDirToolStripMenuItem1.Enabled = false;
-                //deleteToolStripMenuItem1.Enabled = false;
                 renameToolStripMenuItem1.Enabled = false;
 
                 {
@@ -1279,7 +1257,6 @@ namespace usb2snes
 
                     if (info.Item != null)
                     {
-                        //deleteToolStripMenuItem1.Enabled = true;
                         renameToolStripMenuItem1.Enabled = true;
                     }
 
@@ -1325,8 +1302,15 @@ namespace usb2snes
         {
             if (e.KeyCode == Keys.F5)
             {
-                RefreshListViewLocal();
-                RefreshListViewRemote();
+                if (connected)
+                {
+                    RefreshListViewLocal();
+                    RefreshListViewRemote();
+                }
+                else
+                {
+                    buttonRefresh.PerformClick();
+                }
             }
         }
 
@@ -1353,9 +1337,7 @@ namespace usb2snes
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
         }
 
@@ -1368,15 +1350,28 @@ namespace usb2snes
                     RequestType req = new RequestType() { Opcode = OpcodeType.Menu.ToString(), Space = "SNES" };
                     //if (!_ws.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(serializer.Serialize(req))), WebSocketMessageType.Text, true, CancellationToken.None).Wait(3000)) throw new Exception("socket timeout");
                     _ws.Send(serializer.Serialize(req));
+
+                    Thread.Sleep(300);
+
+                    UpdateInfo();
                 }
             }
             catch (Exception x)
             {
-                toolStripStatusLabel1.Text = x.Message.ToString();
-                connected = false;
-                EnableButtons(false);
+                HandleException(x);
             }
 
+        }
+
+        void UpdateInfo()
+        {
+            var req = new RequestType() { Opcode = OpcodeType.Info.ToString(), Space = "SNES" };
+            _ws.Send(serializer.Serialize(req));
+            WaitSocket();
+
+            labelVersion.Text = "Firmware Version: " + _rsp.Results[0] + " (0x" + _rsp.Results[1] + ")";
+            var name = _rsp.Results[2].Split('/').Last();
+            romName.Text = "Rom Name: " + name.Substring(0, Math.Min(40, name.Length));
         }
 
         void SetClient()
@@ -1384,10 +1379,10 @@ namespace usb2snes
             _evClient.Set();
         }
 
-        void WaitClient()
+        void WaitClient(bool extendTimeout = false)
         {
-            //_evClient.WaitOne();
-            WaitHandle.WaitAny(_clientWaitHandles);
+            // allow for a long timeout in the case of uploads
+            if (WaitHandle.WaitAny(_clientWaitHandles, extendTimeout ? 120000 : 5000) == WaitHandle.WaitTimeout) throw new Exception("client timeout");
             _evClient.Reset();
         }
 
@@ -1396,11 +1391,20 @@ namespace usb2snes
             _ev.Set();
         }
 
-        void WaitSocket()
+        void WaitSocket(bool extendTimeout = false)
         {
-            //_ev.WaitOne();
-            WaitHandle.WaitAny(_socketWaitHandles);
+            // allow for a long timeout in the case of uploads
+            if (WaitHandle.WaitAny(_socketWaitHandles, extendTimeout ? 120000 : 5000) == WaitHandle.WaitTimeout) throw new Exception("socket timeout");
             _ev.Reset();
+        }
+
+        void HandleException(Exception x)
+        {
+            toolStripStatusLabel1.Text = x.Message.ToString();
+            connected = false;
+            EnableButtons(false);
+            _ev.Reset();
+            _evClient.Set();
         }
 
     }
