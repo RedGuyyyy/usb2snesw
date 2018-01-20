@@ -95,6 +95,7 @@
             this.labelVersion = new System.Windows.Forms.Label();
             this.labelWebSocketVersion = new System.Windows.Forms.Label();
             this.romName = new System.Windows.Forms.Label();
+            this.checkBoxShowExtensions = new System.Windows.Forms.CheckBox();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -499,17 +500,29 @@
             // romName
             // 
             this.romName.AutoSize = true;
-            this.romName.Location = new System.Drawing.Point(12, 44);
+            this.romName.Location = new System.Drawing.Point(325, 9);
             this.romName.Name = "romName";
             this.romName.Size = new System.Drawing.Size(63, 13);
             this.romName.TabIndex = 20;
             this.romName.Text = "Rom Name:";
+            // 
+            // checkBoxShowExtensions
+            // 
+            this.checkBoxShowExtensions.AutoSize = true;
+            this.checkBoxShowExtensions.Location = new System.Drawing.Point(15, 43);
+            this.checkBoxShowExtensions.Name = "checkBoxShowExtensions";
+            this.checkBoxShowExtensions.Size = new System.Drawing.Size(119, 17);
+            this.checkBoxShowExtensions.TabIndex = 21;
+            this.checkBoxShowExtensions.Text = "Show all extensions";
+            this.checkBoxShowExtensions.UseVisualStyleBackColor = true;
+            this.checkBoxShowExtensions.CheckedChanged += new System.EventHandler(this.checkBoxShowExtensions_CheckedChanged);
             // 
             // usb2snesfileviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(620, 397);
+            this.Controls.Add(this.checkBoxShowExtensions);
             this.Controls.Add(this.romName);
             this.Controls.Add(this.labelWebSocketVersion);
             this.Controls.Add(this.labelVersion);
@@ -602,5 +615,6 @@
         private System.Windows.Forms.Label labelVersion;
         private System.Windows.Forms.Label labelWebSocketVersion;
         private System.Windows.Forms.Label romName;
+        private System.Windows.Forms.CheckBox checkBoxShowExtensions;
     }
 }

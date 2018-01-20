@@ -51,6 +51,7 @@ namespace usb2snes {
         ONLYRESET = 2,
         CLRX = 4,
         SETX = 8,
+        STREAM_BURST = 16,
         NORESP = 64,
         DATA64B = 128,
     };
@@ -98,14 +99,14 @@ namespace usb2snes {
             }
         }
 
-        public static List<Port> GetDeviceList()
+        public static List<Port> GetDeviceList(bool disableFilter = false)
         {
             List<Port> portList = new List<Port>();
 
             var deviceList = utils.Win32DeviceMgmt.GetAllCOMPorts();
             foreach (var device in deviceList)
             {
-                if (device.bus_description.Contains("sd2snes"))
+                if (disableFilter || device.bus_description.Contains("sd2snes"))
                 {
                     portList.Add(new Port(device.name.Trim(), device.name.Trim() + " | " + device.description.Trim()));
                 }

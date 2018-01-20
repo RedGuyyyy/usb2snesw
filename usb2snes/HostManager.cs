@@ -168,11 +168,10 @@ namespace usb2snes
             int activeLineCount = projectDict.Keys
                 .SelectMany(p => projectDict[p], (project, serverGroup) => serverGroup.EnabledCount).Sum();
 
-            string toolTipText = string.Format("{0}\n{1} of {2} lines",
-                (IsDecorated ? activeServerGroupsText : "No sd2snes connected!"), activeLineCount, hostFileData.Count);
-
-            notifyIcon.Text = toolTipText.Length >= MaxTooltipLength ?
-                toolTipText.Substring(0, MaxTooltipLength - 3) + "..." : toolTipText;
+            //string toolTipText = string.Format("{0} SD2SNES are connected to applications", _ports.Count);
+            //
+            //notifyIcon.Text = toolTipText.Length >= MaxTooltipLength ?
+            //    toolTipText.Substring(0, MaxTooltipLength - 3) + "..." : toolTipText;
         }
 
         # endregion hosts file analysis

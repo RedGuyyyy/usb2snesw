@@ -63,7 +63,7 @@ namespace usb2snes
     public class CustomApplicationContext : ApplicationContext
     {
         // Icon graphic from http://prothemedesign.com/circular-icons/
-        private static readonly string DefaultTooltip = "Route HOST entries via context menu";
+        private static readonly string DefaultTooltip = "Click Me.";
         private readonly HostManager hostManager;
         private readonly ClientManager clientManager;
         private readonly Server server;
@@ -97,6 +97,11 @@ namespace usb2snes
             Settings.Default.ForceAutoUpdate = !Settings.Default.ForceAutoUpdate;
         }
 
+        private void DisableComDescFilter_Click(object sender, EventArgs e)
+        {
+            Settings.Default.DisableComDescFilter = !Settings.Default.DisableComDescFilter;
+        }
+
         private void ContextMenuStrip_Opening(object sender, System.ComponentModel.CancelEventArgs e)
         {
             e.Cancel = false;
@@ -118,13 +123,16 @@ namespace usb2snes
             var l = new ToolStripMenuItem("CheckVersionUpdateOnStart (Experimental)");
             l.Click += AutoUpdate_Click;
             l.Checked = Settings.Default.AutoUpdate;
-            //notifyIcon.ContextMenuStrip.Items.Add(l);
             m.DropDownItems.Add(l);
 
             l = new ToolStripMenuItem("ForceVersionUpdate (Experimental)");
             l.Click += ForceAutoUpdate_Click;
             l.Checked = Settings.Default.ForceAutoUpdate;
-            //notifyIcon.ContextMenuStrip.Items.Add(l);
+            m.DropDownItems.Add(l);
+
+            l = new ToolStripMenuItem("DisableComDescFilter (Experimental)");
+            l.Click += DisableComDescFilter_Click;
+            l.Checked = Settings.Default.DisableComDescFilter;
             m.DropDownItems.Add(l);
 
             notifyIcon.ContextMenuStrip.Items.Add(hostManager.ToolStripMenuItemWithHandler("&Help/About", showHelpItem_Click));
