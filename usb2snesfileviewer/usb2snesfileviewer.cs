@@ -781,6 +781,8 @@ namespace usb2snes
 
         }
 
+        Byte debugCnt= 0;
+
         /// <summary>
         /// buttonTest tests some new feature
         /// </summary>
@@ -798,6 +800,23 @@ namespace usb2snes
                         {
                             UpdateInfo();
                             Thread.Sleep(200);
+                        }
+
+                    }
+                    else if (true)
+                    {
+                        RequestType req;
+                        byte[] tBuffer = new byte[Constants.MaxMessageSize];
+
+                        // 0xMASK_DATA_INDEX (As Address), GROUP (As size)
+                        foreach (var config in new int[] { 
+                                                           0x000001 | (((int)(++debugCnt)) << 8), // enable trace
+                                                         })
+                        {
+                            req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x3.ToString("X") }) };
+                            _ws.Send(serializer.Serialize(req));
+                            // send dummy write
+                            _ws.Send(new ArraySegment<byte>(tBuffer, 0, 64).ToArray());
                         }
 
                     }

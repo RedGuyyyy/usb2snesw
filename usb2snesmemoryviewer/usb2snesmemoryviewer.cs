@@ -171,6 +171,11 @@ namespace usb2snes
             _timer.Stop();
 
             comboBoxRegion.SelectedIndex = 0;
+
+#if DEBUG
+            buttonGsuDebug.Visible = true;
+#endif
+
         }
 
         ~usb2snesmemoryviewer()
@@ -774,6 +779,51 @@ namespace usb2snes
         int _offset = 0;
 
         WaitHandle[] _waitHandles = new WaitHandle[2];
+        gsudebug gsuForm;
+        int debugCnt = 0;
+
+        private void buttonGsuDebug_Click(object sender, EventArgs e)
+        {
+            // Open dialog
+            if (gsuForm == null || gsuForm.IsDisposed) gsuForm = new gsudebug();
+
+            if (!gsuForm.Visible)
+            {
+                // Set box to MSU
+                comboBoxRegion.SelectedIndex = 9;
+
+                // Connect
+                buttonRefresh.PerformClick();
+
+                gsuForm.memory = _memory;
+                gsuForm.parent = this;
+                gsuForm.Show();
+            }
+        }
+
+        public void GSUStep()
+        {
+            try
+            {
+                Monitor.Enter(_timerLock);
+                RequestType req;
+                byte[] tBuffer = new byte[Constants.MaxMessageSize];
+
+                // 0xMASK_DATA_INDEX (As Address), GROUP (As size)
+                foreach (var config in new int[] {
+                                               0x000001 | (++debugCnt << 8), // enable trace
+                                             })
+                {
+                    req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x3.ToString("X") }) };
+                    _ws.Send(serializer.Serialize(req));
+                    // send dummy write
+                    _ws.Send(new ArraySegment<byte>(tBuffer, 0, 64).ToArray());
+                }
+            }
+            finally {
+                Monitor.Exit(_timerLock);
+            }
+        }
     }
 
 }
