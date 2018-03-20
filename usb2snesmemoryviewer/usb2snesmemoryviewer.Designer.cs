@@ -41,7 +41,6 @@
             this.textBoxSize = new System.Windows.Forms.TextBox();
             this.pictureConnected = new System.Windows.Forms.PictureBox();
             this.buttonRefresh = new System.Windows.Forms.Button();
-            this.buttonGsuDebug = new System.Windows.Forms.Button();
             this.statusStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureConnected)).BeginInit();
             this.SuspendLayout();
@@ -176,23 +175,11 @@
             this.buttonRefresh.UseVisualStyleBackColor = true;
             this.buttonRefresh.Click += new System.EventHandler(this.buttonRefresh_Click);
             // 
-            // buttonGsuDebug
-            // 
-            this.buttonGsuDebug.Location = new System.Drawing.Point(577, 222);
-            this.buttonGsuDebug.Name = "buttonGsuDebug";
-            this.buttonGsuDebug.Size = new System.Drawing.Size(75, 23);
-            this.buttonGsuDebug.TabIndex = 15;
-            this.buttonGsuDebug.Text = "GSU Debug";
-            this.buttonGsuDebug.UseVisualStyleBackColor = true;
-            this.buttonGsuDebug.Visible = false;
-            this.buttonGsuDebug.Click += new System.EventHandler(this.buttonGsuDebug_Click);
-            // 
             // usb2snesmemoryviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(664, 268);
-            this.Controls.Add(this.buttonGsuDebug);
             this.Controls.Add(this.textBoxSize);
             this.Controls.Add(this.textBoxBase);
             this.Controls.Add(this.buttonExport);
@@ -229,7 +216,6 @@
         private System.Windows.Forms.Button buttonExport;
         private System.Windows.Forms.TextBox textBoxBase;
         private System.Windows.Forms.TextBox textBoxSize;
-        private System.Windows.Forms.Button buttonGsuDebug;
     }
 }
 

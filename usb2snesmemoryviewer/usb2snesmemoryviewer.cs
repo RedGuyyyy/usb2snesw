@@ -172,10 +172,6 @@ namespace usb2snes
 
             comboBoxRegion.SelectedIndex = 0;
 
-#if DEBUG
-            buttonGsuDebug.Visible = true;
-#endif
-
         }
 
         ~usb2snesmemoryviewer()
@@ -235,15 +231,15 @@ namespace usb2snes
                 switch (_region)
                 {
                     case 0: try { _regionBase = Convert.ToInt32(textBoxBase.Text, 16); } catch (Exception x) { _regionBase = 0x0; }; try { _regionSize = Convert.ToInt32(textBoxSize.Text, 16); } catch (Exception x) { _regionSize = 0x100; } break;
-                    case 1:  _regionBase = 0xF50000; _regionSize = 0x0020000; break;
-                    case 2:  _regionBase = 0xF70000; _regionSize = 0x0010000; break;
-                    case 3:  _regionBase = 0xF80000; _regionSize = 0x0010000; break;
-                    case 4:  _regionBase = 0xF90000; _regionSize = 0x0000200; break;
-                    case 5:  _regionBase = 0xF90200; _regionSize = 0x0000220; break;
-                    case 6:  _regionBase = 0xF90500; _regionSize = 0x0000200; break;
-                    case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
-                    case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
-                    case 9:  _regionBase = 0x000000; _regionSize = 0x0007800; break;
+                    case 1: _regionBase = 0xF50000; _regionSize = 0x0020000; break;
+                    case 2: _regionBase = 0xF70000; _regionSize = 0x0010000; break;
+                    case 3: _regionBase = 0xF80000; _regionSize = 0x0010000; break;
+                    case 4: _regionBase = 0xF90000; _regionSize = 0x0000200; break;
+                    case 5: _regionBase = 0xF90200; _regionSize = 0x0000220; break;
+                    case 6: _regionBase = 0xF90500; _regionSize = 0x0000200; break;
+                    case 7: _regionBase = 0xF90700; _regionSize = 0x0000200; break;
+                    case 8: _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
+                    case 9: _regionBase = 0x000000; _regionSize = 0x0007800; break;
                     case 10: _regionBase = 0x002A00; _regionSize = 0x0000600; break; // CMD only uses 1.5KB
                     default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
                 }
@@ -779,51 +775,6 @@ namespace usb2snes
         int _offset = 0;
 
         WaitHandle[] _waitHandles = new WaitHandle[2];
-        gsudebug gsuForm;
-        int debugCnt = 0;
-
-        private void buttonGsuDebug_Click(object sender, EventArgs e)
-        {
-            // Open dialog
-            if (gsuForm == null || gsuForm.IsDisposed) gsuForm = new gsudebug();
-
-            if (!gsuForm.Visible)
-            {
-                // Set box to MSU
-                comboBoxRegion.SelectedIndex = 9;
-
-                // Connect
-                buttonRefresh.PerformClick();
-
-                gsuForm.memory = _memory;
-                gsuForm.parent = this;
-                gsuForm.Show();
-            }
-        }
-
-        public void GSUStep()
-        {
-            try
-            {
-                Monitor.Enter(_timerLock);
-                RequestType req;
-                byte[] tBuffer = new byte[Constants.MaxMessageSize];
-
-                // 0xMASK_DATA_INDEX (As Address), GROUP (As size)
-                foreach (var config in new int[] {
-                                               0x000001 | (++debugCnt << 8), // enable trace
-                                             })
-                {
-                    req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x3.ToString("X") }) };
-                    _ws.Send(serializer.Serialize(req));
-                    // send dummy write
-                    _ws.Send(new ArraySegment<byte>(tBuffer, 0, 64).ToArray());
-                }
-            }
-            finally {
-                Monitor.Exit(_timerLock);
-            }
-        }
     }
 
 }
