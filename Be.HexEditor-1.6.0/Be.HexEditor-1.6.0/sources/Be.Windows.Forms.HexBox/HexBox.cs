@@ -724,7 +724,7 @@ namespace Be.Windows.Forms
 					if (isInsertMode)
 						_hexBox._byteProvider.InsertBytes(pos, new byte[] { newcb });
 					else
-						_hexBox._byteProvider.WriteByte(pos, newcb);
+						_hexBox._byteProvider.WriteByte(pos, cp, newcb);
 
 					PerformPosMoveRight();
 
@@ -1071,7 +1071,7 @@ namespace Be.Windows.Forms
 				if (isInsertMode)
 					_hexBox._byteProvider.InsertBytes(pos, new byte[] { b });
 				else
-					_hexBox._byteProvider.WriteByte(pos, b);
+					_hexBox._byteProvider.WriteByte(pos, cp, b);
 
 				PerformPosMoveRightByte();
 				_hexBox.Invalidate();

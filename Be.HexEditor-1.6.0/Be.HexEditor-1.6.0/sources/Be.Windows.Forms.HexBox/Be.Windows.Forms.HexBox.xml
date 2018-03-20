@@ -249,7 +249,7 @@
             Event args for single byte change
             </summary>
         </member>
-        <member name="M:Be.Windows.Forms.HexBoxEventArgs.#ctor(System.Int64,System.Byte)">
+        <member name="M:Be.Windows.Forms.HexBoxEventArgs.#ctor(System.Int64,System.Int64,System.Byte)">
             <summary>
             Constructor for single byte change
             </summary>
@@ -257,6 +257,11 @@
             <param name="v"></param>
         </member>
         <member name="P:Be.Windows.Forms.HexBoxEventArgs.index">
+            <summary>
+            index of change
+            </summary>
+        </member>
+        <member name="P:Be.Windows.Forms.HexBoxEventArgs.cp">
             <summary>
             index of change
             </summary>
@@ -349,11 +354,12 @@
             <param name="index">the index of the byte to read</param>
             <returns>the byte</returns>
         </member>
-        <member name="M:Be.Windows.Forms.DynamicByteProvider.WriteByte(System.Int64,System.Byte)">
+        <member name="M:Be.Windows.Forms.DynamicByteProvider.WriteByte(System.Int64,System.Int64,System.Byte)">
             <summary>
             Write a byte into the byte collection.
             </summary>
             <param name="index">the index of the byte to write.</param>
+            <param name="cp">the index of the nibble to write.</param>
             <param name="value">the byte</param>
         </member>
         <member name="M:Be.Windows.Forms.DynamicByteProvider.DeleteBytes(System.Int64,System.Int64)">
@@ -441,9 +447,9 @@
             See <see cref="M:Be.Windows.Forms.IByteProvider.ReadTimestamp(System.Int64)" /> for more information.
             </summary>
         </member>
-        <member name="M:Be.Windows.Forms.DynamicFileByteProvider.WriteByte(System.Int64,System.Byte)">
+        <member name="M:Be.Windows.Forms.DynamicFileByteProvider.WriteByte(System.Int64,System.Int64,System.Byte)">
             <summary>
-            See <see cref="M:Be.Windows.Forms.IByteProvider.WriteByte(System.Int64,System.Byte)" /> for more information.
+            See <see cref="M:Be.Windows.Forms.IByteProvider.WriteByte(System.Int64,System.Int64,System.Byte)" /> for more information.
             </summary>
         </member>
         <member name="M:Be.Windows.Forms.DynamicFileByteProvider.InsertBytes(System.Int64,System.Byte[])">
@@ -617,7 +623,7 @@
             Gets the length of the file.
             </summary>
         </member>
-        <member name="M:Be.Windows.Forms.FileByteProvider.WriteByte(System.Int64,System.Byte)">
+        <member name="M:Be.Windows.Forms.FileByteProvider.WriteByte(System.Int64,System.Int64,System.Byte)">
             <summary>
             Writes a byte into write buffer
             </summary>
@@ -1711,11 +1717,12 @@
             <param name="index">the index of the byte to read</param>
             <returns>the byte to read</returns>
         </member>
-        <member name="M:Be.Windows.Forms.IByteProvider.WriteByte(System.Int64,System.Byte)">
+        <member name="M:Be.Windows.Forms.IByteProvider.WriteByte(System.Int64,System.Int64,System.Byte)">
             <summary>
             Writes a byte into the provider
             </summary>
             <param name="index">the index of the byte to write</param>
+            <param cp="index">the index of the nibble to write</param>
             <param name="value">the byte to write</param>
         </member>
         <member name="M:Be.Windows.Forms.IByteProvider.ReadTimestamp(System.Int64)">

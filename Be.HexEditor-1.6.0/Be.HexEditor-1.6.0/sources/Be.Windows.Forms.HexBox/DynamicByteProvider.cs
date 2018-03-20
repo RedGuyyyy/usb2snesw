@@ -13,9 +13,10 @@ namespace Be.Windows.Forms
         /// </summary>
         /// <param name="i"></param>
         /// <param name="v"></param>
-        public HexBoxEventArgs(long i, byte v)
+        public HexBoxEventArgs(long i, long c, byte v)
         {
             index = i;
+            cp = c;
             value = v;
         }
 
@@ -23,6 +24,11 @@ namespace Be.Windows.Forms
         /// index of change
         /// </summary>
         public long index { get; set; }
+
+        /// <summary>
+        /// index of change
+        /// </summary>
+        public long cp { get; set; }
 
         /// <summary>
         /// value changed to
@@ -155,11 +161,12 @@ namespace Be.Windows.Forms
         /// Write a byte into the byte collection.
         /// </summary>
         /// <param name="index">the index of the byte to write.</param>
+        /// <param name="cp">the index of the nibble to write.</param>
         /// <param name="value">the byte</param>
-        public void WriteByte(long index, byte value)
+        public void WriteByte(long index, long cp, byte value)
 		{
 			_bytes[(int)index] = value;
-     	    OnChanged(new HexBoxEventArgs(index, value));
+     	    OnChanged(new HexBoxEventArgs(index, cp, value));
 		}
 
 		/// <summary>

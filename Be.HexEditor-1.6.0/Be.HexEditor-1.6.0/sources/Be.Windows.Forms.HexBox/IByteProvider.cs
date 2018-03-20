@@ -17,8 +17,9 @@ namespace Be.Windows.Forms
         /// Writes a byte into the provider
         /// </summary>
         /// <param name="index">the index of the byte to write</param>
+        /// <param cp="index">the index of the nibble to write</param>
         /// <param name="value">the byte to write</param>
-        void WriteByte(long index, byte value);
+        void WriteByte(long index, long cp, byte value);
         /// <summary>
         /// Reads the current timestamp
         /// </summary>

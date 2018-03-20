@@ -208,7 +208,7 @@ namespace Be.Windows.Forms
 		/// <summary>
 		/// Writes a byte into write buffer
 		/// </summary>
-		public void WriteByte(long index, byte value)
+		public void WriteByte(long index, long cp, byte value)
 		{
 			if(_writes.Contains(index))
 				_writes[index] = value;

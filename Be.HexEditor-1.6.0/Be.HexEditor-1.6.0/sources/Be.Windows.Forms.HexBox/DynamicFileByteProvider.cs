@@ -110,7 +110,7 @@ namespace Be.Windows.Forms
         /// <summary>
         /// See <see cref="IByteProvider.WriteByte" /> for more information.
         /// </summary>
-        public void WriteByte(long index, byte value)
+        public void WriteByte(long index, long cp, byte value)
         {
             try
             {
