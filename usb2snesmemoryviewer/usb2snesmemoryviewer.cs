@@ -167,12 +167,14 @@ namespace usb2snes
             }
 
             _timer.AutoReset = false;
+            _timer.Interval = 100;
             _timer.Elapsed += new ElapsedEventHandler(RefreshSnesMemory);
             _timer.Stop();
 
             comboBoxRegion.SelectedIndex = 0;
 
 #if DEBUG
+            buttonSa1Debug.Visible = true;
             buttonGsuDebug.Visible = true;
 #endif
 
@@ -243,8 +245,13 @@ namespace usb2snes
                     case 6:  _regionBase = 0xF90500; _regionSize = 0x0000200; break;
                     case 7:  _regionBase = 0xF90700; _regionSize = 0x0000200; break;
                     case 8:  _regionBase = 0xF90420; _regionSize = 0x00000E0; break;
-                    case 9:  _regionBase = 0x000000; _regionSize = 0x0007800; break;
-                    case 10: _regionBase = 0x002A00; _regionSize = 0x0000600; break; // CMD only uses 1.5KB
+#if DEBUG
+                    //case 9:  _regionBase = 0x000000; _regionSize = 0x0000400; break;
+                    case 9: _regionBase = 0x000000; _regionSize = 0x0001000; break;
+#else
+                    case 9: _regionBase = 0x000000; _regionSize = 0x0007800; break;
+#endif
+                    case 10: _regionBase = 0x002A00; _regionSize = 0x0000400; break;
                     default: _regionBase = 0xF50000; _regionSize = 0x0050000; break;
                 }
 
@@ -780,7 +787,6 @@ namespace usb2snes
 
         WaitHandle[] _waitHandles = new WaitHandle[2];
         gsudebug gsuForm;
-        int debugCnt = 0;
 
         private void buttonGsuDebug_Click(object sender, EventArgs e)
         {
@@ -801,7 +807,31 @@ namespace usb2snes
             }
         }
 
-        public void GSUStep()
+        //public void GSUStep()
+        //{
+        //    try
+        //    {
+        //        Monitor.Enter(_timerLock);
+        //        RequestType req;
+        //        byte[] tBuffer = new byte[Constants.MaxMessageSize];
+
+        //        // 0xMASK_DATA_INDEX (As Address), GROUP (As size)
+        //        foreach (var config in new int[] {
+        //                                       0x000001 | (++debugCnt << 8), // enable trace
+        //                                     })
+        //        {
+        //            req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x3.ToString("X") }) };
+        //            _ws.Send(serializer.Serialize(req));
+        //            // send dummy write
+        //            _ws.Send(new ArraySegment<byte>(tBuffer, 0, 64).ToArray());
+        //        }
+        //    }
+        //    finally {
+        //        Monitor.Exit(_timerLock);
+        //    }
+        //}
+
+        public void GSUReg(int [] regs)
         {
             try
             {
@@ -810,9 +840,7 @@ namespace usb2snes
                 byte[] tBuffer = new byte[Constants.MaxMessageSize];
 
                 // 0xMASK_DATA_INDEX (As Address), GROUP (As size)
-                foreach (var config in new int[] {
-                                               0x000001 | (++debugCnt << 8), // enable trace
-                                             })
+                foreach (var config in regs)
                 {
                     req = new RequestType() { Opcode = OpcodeType.PutAddress.ToString(), Space = "CONFIG", Operands = new List<string>(new string[] { config.ToString("X"), 0x3.ToString("X") }) };
                     _ws.Send(serializer.Serialize(req));
@@ -820,9 +848,44 @@ namespace usb2snes
                     _ws.Send(new ArraySegment<byte>(tBuffer, 0, 64).ToArray());
                 }
             }
-            finally {
+            finally
+            {
                 Monitor.Exit(_timerLock);
             }
+        }
+
+        public void GSUUpdate()
+        {
+            try
+            {
+                Monitor.Enter(_timerLock);
+                GetDataAndResetHead();
+            }
+            finally
+            {
+                Monitor.Exit(_timerLock);
+            }
+        }
+
+        sa1debug sa1Form;
+        private void buttonSa1Debug_Click(object sender, EventArgs e)
+        {
+            // Open dialog
+            if (sa1Form == null || sa1Form.IsDisposed) sa1Form = new sa1debug();
+
+            if (!sa1Form.Visible)
+            {
+                // Set box to MSU
+                comboBoxRegion.SelectedIndex = 9;
+
+                // Connect
+                buttonRefresh.PerformClick();
+
+                sa1Form.memory = _memory;
+                sa1Form.parent = this;
+                sa1Form.Show();
+            }
+
         }
     }
 

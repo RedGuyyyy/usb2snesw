@@ -1255,6 +1255,8 @@ namespace usb2snes
                 }
                 toolStripStatusLabel1.Text = "idle";
                 toolStripProgressBar1.Enabled = false;
+
+                fs.Close();
             }
         }
 
@@ -1578,6 +1580,8 @@ namespace usb2snes
             labelVersion.Text = "Firmware Version: " + _rsp.Results[0] + " (0x" + _rsp.Results[1] + ")";
             var name = _rsp.Results[2].Split('/').Last();
             romName.Text = "Rom Name: " + name.Substring(0, Math.Min(40, name.Length));
+            deviceName.Text = "Device Name: N/A";
+            if (_rsp.Results.Count >= 5) deviceName.Text = "Device Name: " + _rsp.Results[4];
         }
 
         void SetClient()

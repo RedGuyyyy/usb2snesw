@@ -117,15 +117,31 @@ namespace usb2snes
 
             private void AutoUpdate()
             {
-                if (Settings.Default.AutoUpdate && Directory.Exists("sd2snes") && File.Exists("sd2snes/firmware.img"))
+                if (Settings.Default.AutoUpdate && Directory.Exists("sd2snes"))
                 {
                     Byte[] buffer = new Byte[512];
-                    var f = File.OpenRead("sd2snes/firmware.img");
-                    f.Read(buffer, 0, 8);
-                    f.Close();
-                    uint magic = BitConverter.ToUInt32(buffer, 4);
 
-                    if (Settings.Default.ForceAutoUpdate || magic != 0x44534E53)
+                    uint magicMk2 = 0;
+                    uint magicMk3 = 0;
+
+                    if (File.Exists("sd2snes/firmware.img")) {
+                        var f = File.OpenRead("sd2snes/firmware.img");
+                        f.Read(buffer, 0, 8);
+                        f.Close();
+                        magicMk2 = BitConverter.ToUInt32(buffer, 4);
+                    }
+
+                    if (File.Exists("sd2snes/firmware.im3"))
+                    {
+                        var f = File.OpenRead("sd2snes/firmware.im3");
+                        f.Read(buffer, 0, 8);
+                        f.Close();
+                        magicMk3 = BitConverter.ToUInt32(buffer, 4);
+                    }
+
+                    bool magicSkip = magicMk2 == 0x44534E53 || magicMk3 == 0x33534E53;
+
+                    if (Settings.Default.ForceAutoUpdate || !magicSkip)
                     {
                         foreach (var d in core.GetDeviceList())
                         {
@@ -135,34 +151,46 @@ namespace usb2snes
 
                             var rsp = (List<string>)c.SendCommand(usbint_server_opcode_e.INFO, usbint_server_space_e.SNES, usbint_server_flags_e.NONE);
                             var version = uint.Parse(rsp[1], System.Globalization.NumberStyles.HexNumber);
+                            var deviceName = (rsp.Count >= 5) ? rsp[4] : "";
 
-                            if (version <= 0x80000003 && version != 0x44534E53)
+                            uint magic = magicMk2;
+                            magicSkip = magicMk2 == 0x44534E53;
+                            if (deviceName.Contains("Mk.III"))
                             {
-                                MessageBox.Show("Version: " + rsp[0] + " requires manual update.", "Manual Update");
+                                magic = magicMk3;
+                                magicSkip = magicMk3 == 0x33534E53;
                             }
-                            else if (Settings.Default.ForceAutoUpdate || (version != 0x44534E53 && version < magic))
-                            {
-                                // copy all files over
-                                if (MessageBox.Show("Update " + d.Name + " to: " + magic.ToString("X") + "\n\n" + String.Join("\n", Directory.GetFiles("sd2snes")), "Confirm Update", MessageBoxButtons.OKCancel) == DialogResult.OK)
-                                {
-                                    foreach (var fileName in Directory.GetFiles("sd2snes"))
-                                    {
-                                        // transfer the file over
-                                        f = File.OpenRead(fileName);
 
-                                        c.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.FILE, usbint_server_flags_e.NONE, "/sd2snes/" + Path.GetFileName(fileName), (uint)f.Length);
-                                        for (int i = 0; i < f.Length; i += 512)
+                            if (magic != 0)
+                            {
+                                if (version <= 0x80000003 && !magicSkip)
+                                {
+                                    MessageBox.Show("Version: " + rsp[0] + " requires manual update.", "Manual Update");
+                                }
+                                else if (Settings.Default.ForceAutoUpdate || (!magicSkip && version < magic))
+                                {
+                                    // copy all files over
+                                    if (MessageBox.Show("Update " + d.Name + " to: " + magic.ToString("X") + "\n\n" + String.Join("\n", Directory.GetFiles("sd2snes")), "Confirm Update", MessageBoxButtons.OKCancel) == DialogResult.OK)
+                                    {
+                                        foreach (var fileName in Directory.GetFiles("sd2snes"))
                                         {
-                                            f.Read(buffer, 0, 512);
-                                            c.SendData(buffer, 512);
+                                            // transfer the file over
+                                            var f = File.OpenRead(fileName);
+
+                                            c.SendCommand(usbint_server_opcode_e.PUT, usbint_server_space_e.FILE, usbint_server_flags_e.NONE, "/sd2snes/" + Path.GetFileName(fileName), (uint)f.Length);
+                                            for (int i = 0; i < f.Length; i += 512)
+                                            {
+                                                f.Read(buffer, 0, 512);
+                                                c.SendData(buffer, 512);
+                                            }
+
+                                            f.Close();
                                         }
 
-                                        f.Close();
-                                    }
-
-                                    if (MessageBox.Show("Press OK to Cycle Power", "Reboot", MessageBoxButtons.OKCancel) == DialogResult.OK)
-                                    {
-                                        try { c.SendCommand(usbint_server_opcode_e.POWER_CYCLE, usbint_server_space_e.SNES, usbint_server_flags_e.NONE); } catch (Exception x) { }
+                                        if (MessageBox.Show("Press OK to Cycle Power", "Reboot", MessageBoxButtons.OKCancel) == DialogResult.OK)
+                                        {
+                                            try { c.SendCommand(usbint_server_opcode_e.POWER_CYCLE, usbint_server_space_e.SNES, usbint_server_flags_e.NONE); } catch (Exception x) { }
+                                        }
                                     }
                                 }
                             }
@@ -939,17 +967,12 @@ namespace usb2snes
                                 lock (p.Clients)
                                 {
                                     // close all clients
-                                    try
+                                    foreach (KeyValuePair<int, ClientSocket> c in p.Clients.ToList())
                                     {
-                                        foreach (var c in p.Clients) c.Value.Context.WebSocket.Close();
-
-                                        // clear them out
-                                        p.Clients.Clear();
+                                        try { c.Value.Context.WebSocket.Close(); }
+                                        catch { }
                                     }
-                                    catch (Exception x)
-                                    {
-                                        // Clients have been deleted
-                                    }
+                                    p.Clients.Clear();
 
                                 }
 

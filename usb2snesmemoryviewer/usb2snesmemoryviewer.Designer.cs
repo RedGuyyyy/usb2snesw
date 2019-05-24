@@ -34,7 +34,6 @@
             this.toolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
             this.checkBoxAutoUpdate = new System.Windows.Forms.CheckBox();
-            this.hexBox = new Be.Windows.Forms.HexBox();
             this.comboBoxRegion = new System.Windows.Forms.ComboBox();
             this.buttonExport = new System.Windows.Forms.Button();
             this.textBoxBase = new System.Windows.Forms.TextBox();
@@ -42,6 +41,8 @@
             this.pictureConnected = new System.Windows.Forms.PictureBox();
             this.buttonRefresh = new System.Windows.Forms.Button();
             this.buttonGsuDebug = new System.Windows.Forms.Button();
+            this.buttonSa1Debug = new System.Windows.Forms.Button();
+            this.hexBox = new Be.Windows.Forms.HexBox();
             this.statusStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureConnected)).BeginInit();
             this.SuspendLayout();
@@ -60,7 +61,7 @@
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripProgressBar1,
             this.toolStripStatusLabel1});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 246);
+            this.statusStrip1.Location = new System.Drawing.Point(0, 450);
             this.statusStrip1.Name = "statusStrip1";
             this.statusStrip1.Size = new System.Drawing.Size(664, 22);
             this.statusStrip1.TabIndex = 7;
@@ -93,25 +94,6 @@
             this.checkBoxAutoUpdate.Text = "AutoUpdate";
             this.checkBoxAutoUpdate.UseVisualStyleBackColor = true;
             // 
-            // hexBox
-            // 
-            this.hexBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.hexBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.hexBox.ColumnInfoVisible = true;
-            this.hexBox.Enabled = false;
-            this.hexBox.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.hexBox.LineInfoVisible = true;
-            this.hexBox.Location = new System.Drawing.Point(12, 41);
-            this.hexBox.Name = "hexBox";
-            this.hexBox.ShadowSelectionColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(60)))), ((int)(((byte)(188)))), ((int)(((byte)(255)))));
-            this.hexBox.Size = new System.Drawing.Size(640, 173);
-            this.hexBox.StringViewVisible = true;
-            this.hexBox.TabIndex = 9;
-            this.hexBox.UseFixedBytesPerLine = true;
-            this.hexBox.VScrollBarVisible = true;
-            // 
             // comboBoxRegion
             // 
             this.comboBoxRegion.FormattingEnabled = true;
@@ -124,7 +106,7 @@
             // buttonExport
             // 
             this.buttonExport.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonExport.Location = new System.Drawing.Point(12, 221);
+            this.buttonExport.Location = new System.Drawing.Point(12, 425);
             this.buttonExport.Name = "buttonExport";
             this.buttonExport.Size = new System.Drawing.Size(51, 23);
             this.buttonExport.TabIndex = 12;
@@ -136,7 +118,7 @@
             // 
             this.textBoxBase.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.textBoxBase.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
-            this.textBoxBase.Location = new System.Drawing.Point(69, 222);
+            this.textBoxBase.Location = new System.Drawing.Point(69, 426);
             this.textBoxBase.Name = "textBoxBase";
             this.textBoxBase.Size = new System.Drawing.Size(83, 20);
             this.textBoxBase.TabIndex = 13;
@@ -147,7 +129,7 @@
             // 
             this.textBoxSize.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.textBoxSize.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
-            this.textBoxSize.Location = new System.Drawing.Point(158, 222);
+            this.textBoxSize.Location = new System.Drawing.Point(158, 426);
             this.textBoxSize.Name = "textBoxSize";
             this.textBoxSize.Size = new System.Drawing.Size(83, 20);
             this.textBoxSize.TabIndex = 14;
@@ -178,7 +160,8 @@
             // 
             // buttonGsuDebug
             // 
-            this.buttonGsuDebug.Location = new System.Drawing.Point(577, 222);
+            this.buttonGsuDebug.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.buttonGsuDebug.Location = new System.Drawing.Point(577, 426);
             this.buttonGsuDebug.Name = "buttonGsuDebug";
             this.buttonGsuDebug.Size = new System.Drawing.Size(75, 23);
             this.buttonGsuDebug.TabIndex = 15;
@@ -187,11 +170,43 @@
             this.buttonGsuDebug.Visible = false;
             this.buttonGsuDebug.Click += new System.EventHandler(this.buttonGsuDebug_Click);
             // 
+            // buttonSa1Debug
+            // 
+            this.buttonSa1Debug.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.buttonSa1Debug.Location = new System.Drawing.Point(496, 426);
+            this.buttonSa1Debug.Name = "buttonSa1Debug";
+            this.buttonSa1Debug.Size = new System.Drawing.Size(75, 23);
+            this.buttonSa1Debug.TabIndex = 16;
+            this.buttonSa1Debug.Text = "SA1 Debug";
+            this.buttonSa1Debug.UseVisualStyleBackColor = true;
+            this.buttonSa1Debug.Visible = false;
+            this.buttonSa1Debug.Click += new System.EventHandler(this.buttonSa1Debug_Click);
+            // 
+            // hexBox
+            // 
+            this.hexBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.hexBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.hexBox.ColumnInfoVisible = true;
+            this.hexBox.Enabled = false;
+            this.hexBox.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.hexBox.LineInfoVisible = true;
+            this.hexBox.Location = new System.Drawing.Point(12, 41);
+            this.hexBox.Name = "hexBox";
+            this.hexBox.ShadowSelectionColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(60)))), ((int)(((byte)(188)))), ((int)(((byte)(255)))));
+            this.hexBox.Size = new System.Drawing.Size(640, 377);
+            this.hexBox.StringViewVisible = true;
+            this.hexBox.TabIndex = 9;
+            this.hexBox.UseFixedBytesPerLine = true;
+            this.hexBox.VScrollBarVisible = true;
+            // 
             // usb2snesmemoryviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(664, 268);
+            this.ClientSize = new System.Drawing.Size(664, 472);
+            this.Controls.Add(this.buttonSa1Debug);
             this.Controls.Add(this.buttonGsuDebug);
             this.Controls.Add(this.textBoxSize);
             this.Controls.Add(this.textBoxBase);
@@ -230,6 +245,7 @@
         private System.Windows.Forms.TextBox textBoxBase;
         private System.Windows.Forms.TextBox textBoxSize;
         private System.Windows.Forms.Button buttonGsuDebug;
+        private System.Windows.Forms.Button buttonSa1Debug;
     }
 }
 

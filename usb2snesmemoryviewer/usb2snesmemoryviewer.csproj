@@ -71,6 +71,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="sa1debug.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="sa1debug.Designer.cs">
+      <DependentUpon>sa1debug.cs</DependentUpon>
+    </Compile>
     <Compile Include="gsudebug.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -85,8 +91,12 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="sa1debug.resx">
+      <DependentUpon>sa1debug.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="gsudebug.resx">
       <DependentUpon>gsudebug.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

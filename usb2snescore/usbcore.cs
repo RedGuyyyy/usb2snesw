@@ -145,8 +145,21 @@ namespace usb2snes {
 
         public void Disconnect()
         {
-            try { serialPort.DtrEnable = false; serialPort.Close(); } catch (Exception x) { serialPort = new SerialPort(); }
+            try
+            {
+                serialPort.DtrEnable = false;
+                serialPort.Close();
+            }
+            catch (Exception x)
+            {
+            }
+            finally
+            {
+                serialPort.Dispose();
+                serialPort = new SerialPort();
+            }
         }
+           
 
         public object SendCommand(usbint_server_opcode_e opcode, usbint_server_space_e space, usbint_server_flags_e flags, params object[] args)
         {
@@ -297,6 +310,7 @@ namespace usb2snes {
                 case usbint_server_opcode_e.INFO:
                     {
                         List<string> sL = new List<string>();
+                        // config version
                         var s = System.Text.Encoding.UTF8.GetString(tBuffer, 256 + 4, Array.IndexOf<byte>(tBuffer, 0, 256 + 4) - (256 + 4));
                         sL.Add(s);
                         int v = (tBuffer[256] << 24) | (tBuffer[257] << 16) | (tBuffer[258] << 8) | (tBuffer[259] << 0);
@@ -315,6 +329,11 @@ namespace usb2snes {
                         if ((f & 0x40) != 0) sList.Add("FEAT_USB1");
                         if ((f & 0x80) != 0) sList.Add("FEAT_DMA1");
                         sL.Add(String.Join("|", sList));
+
+                        // device name
+                        s = System.Text.Encoding.UTF8.GetString(tBuffer, 260 + 64, Array.IndexOf<byte>(tBuffer, 0, 260 + 64) - (260 + 64));
+                        sL.Add(s);
+
                         ret = sL;
                         break;
                     }

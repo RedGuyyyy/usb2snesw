@@ -96,6 +96,7 @@
             this.labelWebSocketVersion = new System.Windows.Forms.Label();
             this.romName = new System.Windows.Forms.Label();
             this.checkBoxShowExtensions = new System.Windows.Forms.CheckBox();
+            this.deviceName = new System.Windows.Forms.Label();
             this.statusStrip1.SuspendLayout();
             this.contextMenuStripRemote.SuspendLayout();
             this.contextMenuStripLocal.SuspendLayout();
@@ -106,7 +107,7 @@
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripProgressBar1,
             this.toolStripStatusLabel1});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 375);
+            this.statusStrip1.Location = new System.Drawing.Point(0, 398);
             this.statusStrip1.Name = "statusStrip1";
             this.statusStrip1.Size = new System.Drawing.Size(620, 22);
             this.statusStrip1.TabIndex = 2;
@@ -130,7 +131,7 @@
             // comboBoxPort
             // 
             this.comboBoxPort.FormattingEnabled = true;
-            this.comboBoxPort.Location = new System.Drawing.Point(328, 36);
+            this.comboBoxPort.Location = new System.Drawing.Point(328, 58);
             this.comboBoxPort.Name = "comboBoxPort";
             this.comboBoxPort.Size = new System.Drawing.Size(253, 21);
             this.comboBoxPort.TabIndex = 3;
@@ -256,7 +257,7 @@
             this.listViewRemote.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.listViewRemote.HideSelection = false;
             this.listViewRemote.LabelWrap = false;
-            this.listViewRemote.Location = new System.Drawing.Point(328, 62);
+            this.listViewRemote.Location = new System.Drawing.Point(328, 84);
             this.listViewRemote.Name = "listViewRemote";
             this.listViewRemote.Size = new System.Drawing.Size(280, 278);
             this.listViewRemote.SmallImageList = this.imageList;
@@ -270,7 +271,7 @@
             // buttonMkdir
             // 
             this.buttonMkdir.Enabled = false;
-            this.buttonMkdir.Location = new System.Drawing.Point(328, 346);
+            this.buttonMkdir.Location = new System.Drawing.Point(328, 368);
             this.buttonMkdir.Name = "buttonMkdir";
             this.buttonMkdir.Size = new System.Drawing.Size(50, 23);
             this.buttonMkdir.TabIndex = 7;
@@ -281,7 +282,7 @@
             // buttonDelete
             // 
             this.buttonDelete.Enabled = false;
-            this.buttonDelete.Location = new System.Drawing.Point(384, 346);
+            this.buttonDelete.Location = new System.Drawing.Point(384, 368);
             this.buttonDelete.Name = "buttonDelete";
             this.buttonDelete.Size = new System.Drawing.Size(50, 23);
             this.buttonDelete.TabIndex = 8;
@@ -292,7 +293,7 @@
             // buttonRename
             // 
             this.buttonRename.Enabled = false;
-            this.buttonRename.Location = new System.Drawing.Point(440, 346);
+            this.buttonRename.Location = new System.Drawing.Point(440, 368);
             this.buttonRename.Name = "buttonRename";
             this.buttonRename.Size = new System.Drawing.Size(56, 23);
             this.buttonRename.TabIndex = 9;
@@ -303,7 +304,7 @@
             // listViewLocal
             // 
             this.listViewLocal.LabelWrap = false;
-            this.listViewLocal.Location = new System.Drawing.Point(12, 63);
+            this.listViewLocal.Location = new System.Drawing.Point(12, 85);
             this.listViewLocal.Name = "listViewLocal";
             this.listViewLocal.Size = new System.Drawing.Size(277, 277);
             this.listViewLocal.SmallImageList = this.imageList;
@@ -317,7 +318,7 @@
             // buttonBoot
             // 
             this.buttonBoot.Enabled = false;
-            this.buttonBoot.Location = new System.Drawing.Point(502, 346);
+            this.buttonBoot.Location = new System.Drawing.Point(502, 368);
             this.buttonBoot.Name = "buttonBoot";
             this.buttonBoot.Size = new System.Drawing.Size(48, 23);
             this.buttonBoot.TabIndex = 11;
@@ -385,7 +386,7 @@
             this.buttonUpload.Enabled = false;
             this.buttonUpload.ForeColor = System.Drawing.SystemColors.ControlText;
             this.buttonUpload.Image = global::usb2snesfileviewer.Properties.Resources.gtk_goto_last_ltr;
-            this.buttonUpload.Location = new System.Drawing.Point(295, 148);
+            this.buttonUpload.Location = new System.Drawing.Point(295, 170);
             this.buttonUpload.Name = "buttonUpload";
             this.buttonUpload.Size = new System.Drawing.Size(27, 42);
             this.buttonUpload.TabIndex = 0;
@@ -395,7 +396,7 @@
             // buttonRefresh
             // 
             this.buttonRefresh.Image = ((System.Drawing.Image)(resources.GetObject("buttonRefresh.Image")));
-            this.buttonRefresh.Location = new System.Drawing.Point(587, 34);
+            this.buttonRefresh.Location = new System.Drawing.Point(587, 56);
             this.buttonRefresh.Name = "buttonRefresh";
             this.buttonRefresh.Size = new System.Drawing.Size(21, 23);
             this.buttonRefresh.TabIndex = 4;
@@ -406,7 +407,7 @@
             // 
             this.buttonDownload.Enabled = false;
             this.buttonDownload.Image = global::usb2snesfileviewer.Properties.Resources.gtk_goto_first_ltr;
-            this.buttonDownload.Location = new System.Drawing.Point(295, 205);
+            this.buttonDownload.Location = new System.Drawing.Point(295, 227);
             this.buttonDownload.Name = "buttonDownload";
             this.buttonDownload.Size = new System.Drawing.Size(27, 42);
             this.buttonDownload.TabIndex = 1;
@@ -416,7 +417,7 @@
             // buttonPatch
             // 
             this.buttonPatch.Enabled = false;
-            this.buttonPatch.Location = new System.Drawing.Point(237, 346);
+            this.buttonPatch.Location = new System.Drawing.Point(237, 368);
             this.buttonPatch.Name = "buttonPatch";
             this.buttonPatch.Size = new System.Drawing.Size(52, 23);
             this.buttonPatch.TabIndex = 12;
@@ -427,7 +428,7 @@
             // buttonGetState
             // 
             this.buttonGetState.Enabled = false;
-            this.buttonGetState.Location = new System.Drawing.Point(105, 346);
+            this.buttonGetState.Location = new System.Drawing.Point(105, 368);
             this.buttonGetState.Name = "buttonGetState";
             this.buttonGetState.Size = new System.Drawing.Size(60, 23);
             this.buttonGetState.TabIndex = 13;
@@ -438,7 +439,7 @@
             // buttonSetState
             // 
             this.buttonSetState.Enabled = false;
-            this.buttonSetState.Location = new System.Drawing.Point(171, 346);
+            this.buttonSetState.Location = new System.Drawing.Point(171, 368);
             this.buttonSetState.Name = "buttonSetState";
             this.buttonSetState.Size = new System.Drawing.Size(60, 23);
             this.buttonSetState.TabIndex = 14;
@@ -449,7 +450,7 @@
             // buttonTest
             // 
             this.buttonTest.Enabled = false;
-            this.buttonTest.Location = new System.Drawing.Point(12, 346);
+            this.buttonTest.Location = new System.Drawing.Point(12, 368);
             this.buttonTest.Name = "buttonTest";
             this.buttonTest.Size = new System.Drawing.Size(37, 23);
             this.buttonTest.TabIndex = 15;
@@ -460,7 +461,7 @@
             // buttonSoftReset
             // 
             this.buttonSoftReset.Enabled = false;
-            this.buttonSoftReset.Location = new System.Drawing.Point(555, 346);
+            this.buttonSoftReset.Location = new System.Drawing.Point(555, 368);
             this.buttonSoftReset.Name = "buttonSoftReset";
             this.buttonSoftReset.Size = new System.Drawing.Size(53, 23);
             this.buttonSoftReset.TabIndex = 16;
@@ -471,7 +472,7 @@
             // buttonMenu
             // 
             this.buttonMenu.Enabled = false;
-            this.buttonMenu.Location = new System.Drawing.Point(55, 346);
+            this.buttonMenu.Location = new System.Drawing.Point(55, 368);
             this.buttonMenu.Name = "buttonMenu";
             this.buttonMenu.Size = new System.Drawing.Size(46, 23);
             this.buttonMenu.TabIndex = 17;
@@ -500,7 +501,7 @@
             // romName
             // 
             this.romName.AutoSize = true;
-            this.romName.Location = new System.Drawing.Point(325, 9);
+            this.romName.Location = new System.Drawing.Point(325, 27);
             this.romName.Name = "romName";
             this.romName.Size = new System.Drawing.Size(63, 13);
             this.romName.TabIndex = 20;
@@ -509,7 +510,7 @@
             // checkBoxShowExtensions
             // 
             this.checkBoxShowExtensions.AutoSize = true;
-            this.checkBoxShowExtensions.Location = new System.Drawing.Point(15, 43);
+            this.checkBoxShowExtensions.Location = new System.Drawing.Point(15, 65);
             this.checkBoxShowExtensions.Name = "checkBoxShowExtensions";
             this.checkBoxShowExtensions.Size = new System.Drawing.Size(119, 17);
             this.checkBoxShowExtensions.TabIndex = 21;
@@ -517,11 +518,21 @@
             this.checkBoxShowExtensions.UseVisualStyleBackColor = true;
             this.checkBoxShowExtensions.CheckedChanged += new System.EventHandler(this.checkBoxShowExtensions_CheckedChanged);
             // 
+            // deviceName
+            // 
+            this.deviceName.AutoSize = true;
+            this.deviceName.Location = new System.Drawing.Point(325, 9);
+            this.deviceName.Name = "deviceName";
+            this.deviceName.Size = new System.Drawing.Size(75, 13);
+            this.deviceName.TabIndex = 22;
+            this.deviceName.Text = "Device Name:";
+            // 
             // usb2snesfileviewer
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(620, 397);
+            this.ClientSize = new System.Drawing.Size(620, 420);
+            this.Controls.Add(this.deviceName);
             this.Controls.Add(this.checkBoxShowExtensions);
             this.Controls.Add(this.romName);
             this.Controls.Add(this.labelWebSocketVersion);
@@ -616,5 +627,6 @@
         private System.Windows.Forms.Label labelWebSocketVersion;
         private System.Windows.Forms.Label romName;
         private System.Windows.Forms.CheckBox checkBoxShowExtensions;
+        private System.Windows.Forms.Label deviceName;
     }
 }
