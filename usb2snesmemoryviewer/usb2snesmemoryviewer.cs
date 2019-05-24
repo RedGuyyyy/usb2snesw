@@ -177,7 +177,6 @@ namespace usb2snes
             buttonSa1Debug.Visible = true;
             buttonGsuDebug.Visible = true;
 #endif
-
         }
 
         ~usb2snesmemoryviewer()
